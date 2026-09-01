@@ -1,0 +1,15 @@
+{
+  "name": "business-os",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.19.0",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "check:structure": "node scripts/verify-structure.mjs",
+    "test:kernel": "node --test packages/kernel/test/approval.test.ts packages/kernel/test/operating-loop.test.ts",
+    "test:knowledge": "node --test packages/knowledge/test/promotion.test.ts",
+    "test": "pnpm run check:structure && pnpm run test:kernel && pnpm run test:knowledge",
+    "demo": "node apps/worker/src/demo.ts"
+  }
+}

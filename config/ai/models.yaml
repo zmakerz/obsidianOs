@@ -1,0 +1,16 @@
+version: 1
+roles:
+  deep_reasoning:
+    purpose: architecture, high-impact analysis, final review
+    provider: unset
+    model: unset
+  execution:
+    purpose: implementation and operational work
+    provider: unset
+    model: unset
+  fast_verification:
+    purpose: classification, extraction, lint, inexpensive checks
+    provider: unset
+    model: unset
+secrets:
+  policy: environment-only

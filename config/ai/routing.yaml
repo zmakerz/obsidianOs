@@ -1,0 +1,16 @@
+version: 1
+routes:
+  architecture_decision: planner
+  workflow_plan: planner
+  normal_implementation: operator
+  content_extraction: verifier
+  quality_gate: verifier
+  company_knowledge_update: librarian
+fallback: operator
+approval_required_for:
+  - external_message
+  - advertising_budget_change
+  - payment
+  - destructive_change
+  - production_deploy
+  - personal_to_company_knowledge_promotion

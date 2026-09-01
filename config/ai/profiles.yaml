@@ -1,0 +1,15 @@
+version: 1
+profiles:
+  planner:
+    role: deep_reasoning
+    external_actions: forbidden
+  operator:
+    role: execution
+    external_actions: approval_required
+  verifier:
+    role: fast_verification
+    external_actions: forbidden
+  librarian:
+    role: execution
+    personal_vault_write: forbidden
+    company_wiki_proposal: allowed
