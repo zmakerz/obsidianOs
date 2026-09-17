@@ -6,11 +6,11 @@ status: in-progress
 
 ## 현재 위치
 
-- 맥북 작업 기준: upstream M2.0 `7e634f69142e52ed674213154f45361f32693ad0`, 브랜치 `codex/m21-source-article`. M2.0 완료, M2.1 첫 로컬 CLI/서비스 구현. **M2.1 전체는 미완료**입니다.
+- 맥북 작업 기준: M2.0 `7e634f6` 이후 M2.1 첫 로컬 CLI/서비스와 문서를 `aac1c72`에 커밋했습니다. 개발 브랜치 `codex/m21-source-article`에서 `main`으로 fast-forward 반영했으며 현재 공유 브랜치는 `main`입니다. **M2.1 전체는 미완료**입니다.
 - 데스크톱 설계 대화를 초기 KnowledgeOS부터 GitHub/API 설정 인계까지 확인했습니다. 지속할 결정과 이유는 [PRODUCT](docs/PRODUCT.md#설계-이력과-확정-기준)에 반영했습니다. 과거 대화·임시 파일·stash를 다시 읽어야만 개발할 수 있는 상태로 두지 않습니다.
 - 기본 방향은 충실한 Raw + 대표 Article, 선택적 Wiki, 날짜별 통합 로그, 필요한 맥락만 읽기입니다. 개인 지식과 회사 Vault를 합치지 않습니다.
-- 이번 작업은 GitHub용 README 정비입니다. 기본 `README.md`는 영어, `README.ko.md`는 한국어로 구성하고 상단에 상호 언어 선택 링크를 연결했습니다. 소개·현재 기능·실행 방법·로드맵을 정리했으며 서비스 코드와 글 생성 언어는 변경하지 않았습니다.
-- M2.1 첫 로컬 구현, 설계 인계 문서와 영문/한국어 README를 `codex/m21-source-article` 브랜치의 로컬 커밋으로 함께 기록합니다. **GitHub push는 미실행**이며 다른 기기에 전달된 상태가 아닙니다. 정확한 커밋은 `git log -1`로 확인합니다.
+- 기본 `README.md`는 영어, `README.ko.md`는 한국어이며 상단에서 언어를 선택합니다. 현재 기능·실행 방법·로드맵을 정리했고 글 생성 정책은 한국어를 유지합니다.
+- 사용자가 GitHub push를 요청하여 `main` 반영과 공유를 진행합니다. `git push origin main`은 현재 개발 브랜치가 아니라 로컬 main을 보내므로 먼저 해당 커밋을 main에 반영해야 합니다. 원격 동기화 여부는 `git fetch origin` 후 `git status -sb`로 확인합니다. 비밀키와 비공개 실험 자료는 계속 Git 제외 상태입니다.
 
 ## 구현된 범위와 코드 진입점
 
