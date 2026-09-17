@@ -26,6 +26,13 @@ In your pull request, explain the change, its tests and remaining limitations.
 Use temporary Vaults and synthetic input for tests; do not change personal documents or require API keys.
 The existing database unit tests use a fake database, not a live PostgreSQL server.
 
+## Leave a resumable state
+
+- Keep durable product decisions and their reasons in [PRODUCT](docs/PRODUCT.md), service boundaries in [ARCHITECTURE](docs/ARCHITECTURE.md), and acceptance criteria in [MILESTONES](docs/MILESTONES.md). Extend these before adding another handoff document.
+- Update [ACTIVE](ACTIVE.md) with the current slice, verification date/environment, known limits and next concrete action. Separate planned, implemented and verified behavior; do not use a private conversation, temporary file or Git stash as the only record of an accepted decision.
+- Record whether changes are committed/pushed. On another machine, check its checkout and local setup before relying on previous verification. Document-only changes need link/content checks and the repository tests, without new paid API calls or unrelated build repetition.
+- Keep [README](README.md) in English as the default and [README.ko](README.ko.md) in Korean, with reciprocal language links at the top. Update both when commands, prerequisites, capabilities, limits or milestone status change. This documentation language choice does not change the application's output language.
+
 ## Public repository boundary
 
 Publish only code, original documentation, templates and redistributable sample data.

@@ -31,3 +31,6 @@ vault/90_logs/*
 
 # Settings created by accidentally opening the repository root as a Vault
 /.obsidian/
+
+# Transient single-writer lock for the local source/Article CLI
+vault/.business-os-write.lock

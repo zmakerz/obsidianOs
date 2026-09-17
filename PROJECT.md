@@ -20,6 +20,19 @@ Business OS는 자료와 회사 지식을 실제 업무·승인·측정으로 �
 - 외부 발송·비용 변경·삭제·배포와 기존 지식 변경은 해당 범위의 승인을 확인
 - 특정 업종·모델·SaaS는 공통 엔진 밖의 설정 또는 Adapter로 연결
 
-Kernel → Business Pack → Industry Pack 방향은 유지하되, 필요해진 기능만 구현합니다. Obsidian·CLI·웹은 같은 지식 처리 서비스를 사용하도록 전환할 계획이며 아직 연결되지 않았습니다.
+Kernel → Business Pack → Industry Pack 방향은 유지하되, 필요해진 기능만 구현합니다. 현재 로컬 CLI가 공통 Raw/Article 서비스를 사용하며, Obsidian·웹과 지속 작업 DB 연결은 다음 구현 대상입니다.
 
 현재 구현/검증 상태는 [ACTIVE](ACTIVE.md), 다음 완료 기준은 [Milestones](docs/MILESTONES.md)를 확인합니다.
+
+## 대화 없이 이어가는 문서 지도
+
+처음에는 이 문서와 ACTIVE만 읽고, 작업에 따라 아래 문서의 관련 절을 추가합니다. 과거 대화에서 합의한 제품 결정은 저장소 문서에 요약하며, 대화 전문·개인 자료는 공개 저장소에 복사하지 않습니다.
+
+| 확인할 내용 | 기준 문서 |
+|---|---|
+| 왜 이 방향인가, 사용자가 원하는 글과 지식 축적 방식 | [Product — 설계 이력과 확정 기준](docs/PRODUCT.md#설계-이력과-확정-기준) |
+| 정본·권한·서비스 경계와 개선 방향 | [Architecture](docs/ARCHITECTURE.md) |
+| 바로 다음 작업과 단계별 합격 조건 | [Milestones](docs/MILESTONES.md) |
+| 이 컴퓨터에서 실행·설정하는 방법 | [README — English](README.md) · [한국어](README.ko.md) |
+
+현재 동작은 코드와 테스트로 확인합니다. 목표 문서에 적혀 있다는 이유로 구현됐다고 판단하지 않습니다. 설계를 개선할 때는 해결할 실제 문제·검증 방법을 정하고 관련 결정을 갱신합니다.

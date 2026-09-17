@@ -11,20 +11,25 @@
     "check:structure": "node scripts/verify-structure.mjs",
     "check:vault": "node scripts/vault-lint.mjs",
     "test:kernel": "node --test packages/kernel/test/approval.test.ts packages/kernel/test/operating-loop.test.ts",
-    "test:knowledge": "node --test packages/knowledge/test/promotion.test.ts",
+    "test:knowledge": "node --test packages/knowledge/test/*.test.ts",
     "test:database": "node --test packages/database/test/dashboard.test.ts packages/database/test/repository.test.ts",
-    "test": "node scripts/verify-structure.mjs && node scripts/vault-lint.mjs && node --test packages/kernel/test/approval.test.ts packages/kernel/test/operating-loop.test.ts packages/knowledge/test/promotion.test.ts packages/database/test/dashboard.test.ts packages/database/test/repository.test.ts && node --test scripts/test/*.test.mjs",
+    "test": "node scripts/verify-structure.mjs && node scripts/vault-lint.mjs && node --test packages/kernel/test/approval.test.ts packages/kernel/test/operating-loop.test.ts packages/knowledge/test/*.test.ts packages/database/test/dashboard.test.ts packages/database/test/repository.test.ts && node --test scripts/test/*.test.mjs",
     "demo": "node apps/worker/src/demo.ts",
     "knowledge:propose": "node scripts/propose-knowledge-promotion.mjs",
-    "dev": "pnpm --filter @business-os/control-tower dev",
-    "build": "pnpm --filter @business-os/control-tower build",
-    "typecheck": "pnpm --filter @business-os/control-tower typecheck",
+    "dev": "node scripts/workspace-command.mjs dev",
+    "build": "node scripts/workspace-command.mjs build",
+    "typecheck": "node scripts/workspace-command.mjs typecheck",
     "db:migrate": "node --env-file-if-exists=apps/control-tower/.env.local packages/database/src/migrate.ts",
     "db:seed": "node --env-file-if-exists=apps/control-tower/.env.local packages/database/src/seed.ts",
-    "test:scripts": "node --test scripts/test/*.test.mjs"
+    "test:scripts": "node --test scripts/test/*.test.mjs",
+    "knowledge:process": "node --env-file-if-exists=.env.local scripts/process-source.ts",
+    "check:openai": "node --env-file-if-exists=.env.local scripts/check-openai.ts",
+    "typecheck:knowledge": "tsc -p packages/knowledge/tsconfig.json"
   },
   "license": "MIT",
   "devDependencies": {
-    "yaml": "2.9.1"
+    "yaml": "2.9.1",
+    "typescript": "7.0.2",
+    "@types/node": "26.4.0"
   }
 }

@@ -1,14 +1,35 @@
 # Business OS · obsidianOs
 
-A local-first knowledge and operations foundation for Obsidian, Markdown and AI-assisted workflows.
+**English** | [한국어](README.ko.md)
 
-자료와 회사 지식을 업무·승인·측정으로 연결하는 초기 오픈소스 프로젝트입니다. 개인 KnowledgeOS와 회사 지식의 소유 영역을 구분하며, 첫 목표는 **자료 → 충실한 Article → 필요한 경우만 Wiki → 다음 업무에서 재사용**입니다.
+A local-first knowledge and operations foundation for Obsidian, Markdown, and AI-assisted workflows.
 
-**Early development / local demo.** 현재는 Kernel·Vault 골격, Control Tower Demo와 초기 PostgreSQL 코드가 있습니다. AI Article 생성, Obsidian 처리 명령, 지속 Worker와 전체 승인·실행 연결은 아직 완성되지 않았습니다. 운영용·공개 서버용 완성 제품으로 사용하지 마세요.
+Turn source material into readable articles and reusable knowledge, then bring that knowledge into company workflows. Personal knowledge and company data remain separate.
 
-## 빠른 시작 — API 키와 DB 없이
+**Early development / local demo.** The first M2.1 slice supports local Raw preservation and AI Article generation through a CLI. Durable PostgreSQL jobs, recovery, Obsidian processing commands, and the full approval/execution flow are still in development. This is not yet a production or public-server release.
 
-Node.js 24 이상, Git, package.json에 지정된 pnpm을 사용합니다. 아래 명령은 저장소 루트에서 실행합니다.
+## What we are building
+
+```text
+Source → Preserved Raw → Faithful Article → Optional Wiki updates → Reuse in the next task
+```
+
+Preserve the original and produce an article that retains its examples, numbers, and code. Update the Wiki only when there is reusable knowledge to add. The longer-term goal is to connect that knowledge to planning, approval, execution, and measurement.
+
+| Available now | Next to implement |
+|---|---|
+| Local CLI for Raw preservation, supplied drafts, and AI Articles | PostgreSQL job records and recovery |
+| Reuse of completed requests and manual-edit conflict detection | Per-segment checkpoints and real-source quality evaluation |
+| Public Obsidian sample Vault and structure/link checks | Obsidian processing commands and shared web task views |
+| Control Tower Demo and initial DB views | Reviewed, approved Wiki changes and section-level retrieval |
+
+**Language coverage:** this README is available in English and Korean. The current AI Article policy generates Korean text; detailed design documents and the sample Vault are also mostly in Korean. Selecting a README language does not change the application or generation language.
+
+[Quick start](#quick-start) · [Process a source](#process-a-source) · [Obsidian](#use-with-obsidian) · [Resume development](#resume-on-another-computer) · [Roadmap](#roadmap-and-contributing)
+
+## Quick start
+
+The Demo and automated tests require **no API key or database**. Use Node.js 24+, Git, and the pnpm version pinned in [package.json](package.json). Run commands from the repository root.
 
 ```sh
 git clone https://github.com/zmakerz/obsidianOs.git
@@ -19,98 +40,152 @@ corepack pnpm demo
 corepack pnpm dev
 ```
 
-Corepack이 없는 환경에서는 pnpm 11.19.0을 설치한 뒤 명령의 corepack 접두사를 빼고 실행합니다. Demo에는 .env 파일이 필요하지 않습니다. DATABASE_URL을 설정하면 실제 DB 모드로 전환되므로 첫 실행에서는 비워둡니다.
+If Corepack is unavailable, install pnpm 11.19.0 and omit the `corepack` prefix. No `.env` file is needed for Demo mode. Leave `DATABASE_URL` unset: setting it switches the dashboard to PostgreSQL mode.
 
-웹은 http://127.0.0.1:3000 에서 열립니다. dev/start는 로컬 loopback에 바인딩합니다. Demo KPI·추천·활동은 합성 자료이고 승인 버튼은 비활성화됩니다.
+Open [the local dashboard](http://127.0.0.1:3000). The dev/start commands bind to loopback. Demo KPIs, suggestions, and activities are synthetic, and approval buttons are disabled.
 
-## 새 컴퓨터에서 이어가기
+## Process a source
 
-위 빠른 시작 명령으로 복제·설치·검증합니다. 이미 복제한 저장소가 있고 로컬 변경이 없다면 `git pull --ff-only`로 갱신합니다.
+This is the first M2.1 implementation. Keep real documents in a private Vault or the Git-ignored `local-vault/` directory, rather than the public sample `vault/`. Replace the absolute paths below with your own. The target Vault directory must already exist.
 
-- 개발 도구에서는 저장소 루트를 열고 AGENTS.md → PROJECT.md → ACTIVE.md 순서로 현재 상태를 확인합니다. M2.0은 완료했으며 다음 구현은 M2.1의 자료 → Raw → Article 공통 처리 기능입니다.
-- Obsidian에서는 저장소 안의 vault 폴더만 열고 40_navigation/HOME.md에서 시작합니다.
-- GitHub에는 공개 코드·샘플만 있습니다. API 키(.env 파일), 개인/회사 실제 자료, Obsidian 설정·플러그인, 의존성 설치본과 DB 데이터는 함께 내려오지 않습니다. 필요한 항목은 별도로 설정하거나 안전하게 옮깁니다.
-- 현재 Demo·테스트에는 키가 필요하지 않습니다. 실제 AI 처리와 환경변수 로딩은 후속 구현 대상이므로 키 파일만 만든 상태를 AI 연결 완료로 보지 않습니다.
+### Save a supplied draft without an API call
 
-## 실행 가능한 최소 예제
+Both the source and draft must be inside the specified `--source-root`.
 
 ```sh
-corepack pnpm demo
+corepack pnpm knowledge:process -- --vault "/absolute/private-vault" --source-root "/absolute/input" --source "/absolute/input/source.md" --title "Source title" --source-type web --url "https://example.com/article" --domain general --draft "/absolute/input/draft.md"
 ```
 
-메모리 안에서 샘플 Loop를 계획·승인 단계로 진행시킵니다. 출력에는 다음 값이 포함됩니다.
+### Generate an Article with AI
 
-```json
-{ "phase": "execute", "cycle": 1, "approval": "approved" }
-```
+Use [.env.example](.env.example) as a reference and set `OPENAI_API_KEY` in the repository-root `.env.local`. Replace `--draft ...` in the command above with `--ai`. This explicitly sends the selected source body to OpenAI and incurs API usage charges.
 
-이 예제는 상태 전이만 보여주며 실제 글 발행·API 호출·파일 수정·DB 기록을 하지 않습니다.
-
-## 검증
+The adapter is configured to use `gpt-5.6-terra` by default, with an `OPENAI_MODEL` override. Compatibility with the adapter's reasoning options must be checked when changing models.
 
 ```sh
-corepack pnpm test
-corepack pnpm typecheck
-corepack pnpm build
+# Optional paid connectivity check requesting a short OK response.
+# This is not part of the automated test suite.
+corepack pnpm check:openai
 ```
 
-CI는 같은 명령과 demo를 실행합니다. 기존 테스트는 Kernel/승격 정책/DB repository를 검증하며 DB 테스트는 FakeDatabase를 사용합니다. 실제 PostgreSQL·AI·Obsidian end-to-end는 별도 완료 조건입니다. CLI 입력·경로 경계의 회귀 테스트를 포함합니다. YAML/kind별 속성·중복 ID·Wikilink 목적지/헤딩/첨부·HOME 도달성을 읽기 전용으로 검사합니다. 일반 Markdown 링크와 외부 URL의 유효성은 이 검사 범위가 아닙니다.
+### Outputs and behavior
 
-## 코드 구성
+| Output | Location | Purpose |
+|---|---|---|
+| Raw | `20_raw/<source_type>/date-title-hash.md` | Preserve the source body and line endings; verify with SHA-256 |
+| Article | `80_outputs/articles/date-title-hash.md` | Store the review-pending draft, source ID/link, generation policy, and usage when available |
+| Daily log | `90_logs/YYYY-MM-DD.md` | Append result summaries; does not replace the job database |
 
-| 경로 | 현재 역할 |
-|---|---|
-| packages/kernel | 승인·운영 루프 기초 모델 |
-| packages/knowledge | 지식 참조·승격 정책; 실제 처리 서비스로 확장 예정 |
-| packages/database | 초기 PostgreSQL schema/repository와 Demo snapshot |
-| apps/control-tower | Demo/DB 조회 웹 화면 |
-| apps/worker | 메모리 Loop 예제; 운영 Worker는 미구현 |
-| packs/marketing | 후속 GEO/AEO 업무 모델 |
-| vault | Obsidian에서 별도로 열 수 있는 공개 샘플·템플릿 Vault |
+- Input is a UTF-8 `.md` or `.txt` file. The whole file is preserved. Capture frontmatter extraction, web/YouTube fetching, and binary/PDF imports are not implemented yet.
+- Document IDs are separate from filenames. Repeating the same source/content/policy request returns the existing result without another AI call. Changed content or model/policy produces a separate result.
+- Existing Raw/Article content is not overwritten. Manual edits or stale source links after a Raw move produce a conflict requiring review. This command does not delete Inbox items or create Wiki pages.
+- Supplied drafts and AI-generated Articles are distinguished; both remain pending review.
+- Empty or URL-only input returns `needs-input`. Model errors, truncated responses, or missing code blocks fail the request and preserve Raw. These checks do not guarantee factual or writing quality.
+- AI input is split without breaking paragraphs or fenced code blocks: up to 12,000 characters per segment, 8 calls, and 8,192 output tokens per response. There are no automatic retries. Oversized indivisible blocks or inputs exceeding the call budget fail explicitly rather than being silently truncated.
 
-## Obsidian과 회사 지식
+The service currently supports one local writer. Concurrent writes are rejected through `.business-os-write.lock`. Normal errors/cancellation release the lock; forced termination can leave it behind for manual inspection and recovery. Partial generation checkpoints, automatic crash recovery, and persistent jobs/attempts/events are still pending. This is not a completed M2.1 pipeline or operational Worker.
 
-Obsidian에서는 개발 저장소 전체가 아니라 **그 안의 vault 폴더만** 열고 40_navigation/HOME.md에서 시작합니다. 왼쪽 최상위에 00_system, 10_inbox, 30_wiki 등이 보이면 맞습니다. apps나 node_modules가 보이면 개발 루트를 연 것입니다.
+API references: [OpenAI Responses](https://developers.openai.com/api/reference/responses/create) and [GPT-5.6 Terra](https://developers.openai.com/api/docs/models/gpt-5.6-terra). Tests use synthetic fixtures and mocked API responses, without user documents or credentials.
 
-개발 폴더 이름은 바꿔도 되지만 저장소 내부의 vault 이름은 유지합니다. Obsidian에서 보관함 이름을 바꾸면 실제 폴더명도 바뀌므로, 이름만 꾸미려고 변경하지 마세요. 자세한 동작은 [Obsidian 보관함 관리](https://obsidian.md/help/manage-vaults)를 참고하세요.
+## Use with Obsidian
 
-Core Templates 폴더는 00_system/templates입니다. HOME 링크는 실제 파일 경로와 표시명을 구분합니다.
+Open **the `vault/` folder inside this repository**, then start at [40_navigation/HOME.md](vault/40_navigation/HOME.md). Top-level folders should include `00_system`, `10_inbox`, and `30_wiki`. If you see `apps` or `node_modules`, you opened the development root instead.
 
-읽기 전용 구조 검사(저장소 루트에서 실행):
+Keep the repository's internal `vault/` directory name. The outer checkout directory can be renamed. Renaming the Vault through Obsidian can also rename its folder; see [Obsidian Vault management](https://obsidian.md/help/manage-vaults).
+
+Set the Core Templates folder to `00_system/templates`. HOME links distinguish actual file paths from display labels.
+
+Run read-only validation from the repository root:
 
 ```sh
 corepack pnpm check:vault
 node scripts/vault-lint.mjs --vault "/absolute/company-vault"
 ```
 
-검사는 내용을 수정하지 않으며 Article에 Wiki나 Map 생성을 강제하지 않습니다. 현재 규칙과 검사 범위는 [Vault 운영 규칙](vault/00_system/OPERATING_RULES.md)을 따릅니다.
+Validation does not modify content or require an Article to create a Wiki or Map. See the [Vault operating rules](vault/00_system/OPERATING_RULES.md) for the current scope.
 
-개인 자료의 회사 사용을 검토하는 기존 명령은 수동 제안서만 생성합니다. 경로는 본인의 개인 Vault 자료로 바꿉니다. --source-root로 읽기 허용 경계를, --vault로 제안서를 기록할 비공개 회사 Vault를 명시합니다. 대상 Vault에는 10_inbox 폴더가 있어야 합니다. PowerShell에서는 C:/... 같은 절대 경로를 사용합니다.
+The existing personal-to-company promotion command creates a **manual proposal only**. Select an individual source from your personal Vault, use `--source-root` to bound reads, and use `--vault` for the private company Vault receiving the proposal. The target must contain `10_inbox`. On Windows/PowerShell, use absolute paths such as `C:/...`.
 
 ```sh
-node scripts/propose-knowledge-promotion.mjs --vault "/absolute/company-vault" --source-root "/absolute/personal-vault" --source "/absolute/personal-vault/source.md" --title "회사에서 사용할 지식" --domain general --kind article
+node scripts/propose-knowledge-promotion.mjs --vault "/absolute/company-vault" --source-root "/absolute/personal-vault" --source "/absolute/personal-vault/source.md" --title "Knowledge for company use" --domain general --kind article
 ```
 
-제안서 생성은 AI 처리·원문 복사·Wiki 반영이 아닙니다.
+A proposal does not perform AI processing, copy the original, or apply Wiki changes.
 
-## 데이터와 운영 한계
+## Verify the project
 
-- Markdown은 원본·정리글·지식, PostgreSQL은 작업·승인·실행 상태의 정본으로 설계합니다.
-- 실제 회사 설명·목표는 회사별 업무 적용 전에 입력합니다. 범용 처리 개발의 선행 조건은 아닙니다.
-- 이 공개 저장소의 vault는 샘플입니다. 실제 회사/개인 자료는 저장소 밖이나 Git에서 제외한 local-vault/에 보관하세요. 이미 추적 중인 파일은 .gitignore만으로 보호되지 않습니다.
-- API 키·토큰·.env.local·Obsidian 플러그인 설정·사적 원문은 커밋하지 않습니다.
-- DB 사용은 별도 테스트 DB로 제한합니다. 초기 migration은 버전 관리/업그레이드 검증이 아직 없습니다.
-- DB 모드의 actor 문자열은 사용자 인증이 아닙니다. 로그인·회사 격리·승인 payload 결합 전에는 네트워크/팀 서비스로 공개하지 않습니다.
-- PostgreSQL 설정 예시는 apps/control-tower/.env.example, 명령은 pnpm db:migrate / pnpm db:seed입니다. seed는 합성 자료입니다.
+```sh
+corepack pnpm test
+corepack pnpm demo
+corepack pnpm typecheck
+corepack pnpm build
+```
 
-## 방향과 기여
+CI runs these commands. Tests cover Kernel rules, knowledge promotion, the Raw/Article service, CLI input/path boundaries, and database repositories. Database unit tests currently use `FakeDatabase`; live PostgreSQL, AI, and Obsidian end-to-end verification are separate acceptance criteria.
 
-[현재 상태](ACTIVE.md) · [제품 범위](docs/PRODUCT.md) · [목표 구조](docs/ARCHITECTURE.md) · [로드맵](docs/MILESTONES.md) · [기여 안내](CONTRIBUTING.md)
+The Vault linter checks YAML, kind-specific metadata, duplicate IDs, Wikilink targets/headings/attachments, and HOME reachability. It does not validate ordinary Markdown links or external URLs.
 
-M2.0 사용성 복구 → M2.1 자료/Article → M2.2 Obsidian·웹·선택적 Wiki → M3 실제 업무 Loop → M4 B2B 제공 준비 순서입니다.
-진행률이나 성능 절감 수치를 추정해서 주장하지 않고, 실제 검증한 시나리오와 제한을 기록합니다.
+`corepack pnpm demo` runs an in-memory Loop through planning and approval. Its output includes:
+
+```json
+{ "phase": "execute", "cycle": 1, "approval": "approved" }
+```
+
+This demonstrates state transitions only: no publishing, API calls, file changes, or DB writes.
+
+## Repository map
+
+| Path | Current role |
+|---|---|
+| `packages/kernel` | Approval and operating-loop primitives |
+| `packages/knowledge` | Knowledge references, promotion policy, local Raw/Article service, Markdown/OpenAI adapters |
+| `packages/database` | Initial PostgreSQL schema/repositories and Demo snapshots |
+| `apps/control-tower` | Demo and database dashboard |
+| `apps/worker` | In-memory Loop example; operational Worker not implemented |
+| `packs/marketing` | Models for the later GEO/AEO workflow |
+| `vault` | Public Obsidian sample Vault and templates |
+
+## Resume on another computer
+
+Clone, install, and verify using the quick-start commands. For an existing checkout with no local changes, use `git pull --ff-only` to update the checked-out branch.
+
+- Open the repository root in your development tool. Read [AGENTS](AGENTS.md) → [PROJECT](PROJECT.md) → [ACTIVE](ACTIVE.md), then the relevant code and documents. M2.0 is complete; M2.1 is in progress. PostgreSQL job state and recovery come next.
+- Open only `vault/` in Obsidian. GitHub contains public code and samples; keys, private documents, Obsidian settings/plugins, installed dependencies, and DB data require separate local setup or secure transfer.
+- Demo/tests need no key. The processing CLI reads the root `.env.local`; a file's existence is not proof of a working API connection.
+- [Product decisions](docs/PRODUCT.md#설계-이력과-확정-기준) explain how the design evolved. [PROJECT](PROJECT.md#대화-없이-이어가는-문서-지도) maps the documents needed to continue without rereading old chats.
+
+Only **committed and pushed** code/documents reach another checkout. Verification recorded for another computer does not replace checking the current machine's setup.
+
+Suggested prompt for a new session:
+
+> Read PROJECT.md and ACTIVE.md first, then the relevant PRODUCT decisions and the next unfinished MILESTONES item. Confirm implementation status against the current code and verification results. Continue from there, updating the existing documents with changes and remaining work.
+
+## Data and operational boundaries
+
+- Markdown is the intended source of truth for sources, articles, and knowledge; PostgreSQL owns job, approval, and execution state.
+- A Company Profile is needed before company-specific workflows, not before building the generic pipeline.
+- Tracked `vault/` files are public samples. Keep real personal/company data outside the repository or in ignored `local-vault/`. `.gitignore` does not protect files already tracked by Git.
+- Do not commit API keys, tokens, `.env.local`, local Obsidian plugin settings, or private source material.
+- Use a separate test database. The initial migration does not yet have versioned upgrade management or verification.
+- The DB-mode actor string is not authentication. Network/team deployment requires authentication, company isolation, and approvals bound to their payloads.
+- PostgreSQL configuration is documented in [apps/control-tower/.env.example](apps/control-tower/.env.example). The commands are `corepack pnpm db:migrate` and `corepack pnpm db:seed`; seed data is synthetic.
+
+## Roadmap and contributing
+
+| Stage | Scope | Status |
+|---|---|---|
+| M2.0 | Baseline and Obsidian usability | Complete within its defined scope |
+| M2.1 | Source → Raw → Article, durable processing | In progress; local CLI slice implemented |
+| M2.2 | Obsidian/web integration, optional Wiki, retrieval | Planned |
+| M3 | One real company workflow with measurement and feedback | Planned |
+| M4 | B2B readiness: authentication, isolation, backup/recovery, operations | Planned |
+
+[Current state](ACTIVE.md) · [Product scope](docs/PRODUCT.md) · [Architecture](docs/ARCHITECTURE.md) · [Acceptance criteria](docs/MILESTONES.md) · [Contributing](CONTRIBUTING.md)
+
+Progress is reported through verified scenarios and remaining limits, not speculative completion percentages or token-savings claims. Keep the English and Korean READMEs aligned when changing setup, commands, scope, or status. Detailed project documents are currently mostly in Korean.
 
 ## License
 
 [MIT](LICENSE). Copyright (c) 2026 zmakerz and contributors.
-프로젝트가 작성한 코드·문서·템플릿에 적용합니다. 의존성·외부 원문·링크된 자료의 권리를 대체하지 않습니다.
+
+Applies to original project code, documentation, and templates. Dependencies and third-party sources or linked material retain their own rights.
