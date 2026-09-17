@@ -1,4 +1,4 @@
-import { KnowledgeError, type ArticleDraft, type ArticleGenerator, type ArticleUsage, type SourceInput } from './article-types.ts';
+import { KnowledgeError, type ArticleDraft, type ArticleGenerator, type ArticleUsage, type GenerationObserver, type SourceInput } from './article-types.ts';
 
 export const ARTICLE_POLICY = 'faithful-article-v1';
 export const ARTICLE_INSTRUCTIONS = `주어진 자료를 원문 충실형 한국어 Markdown 정리글로 작성합니다.
@@ -79,13 +79,15 @@ export class OpenAIArticleGenerator implements ArticleGenerator {
     this.request = options.fetch ?? fetch;
     this.fingerprint = JSON.stringify([ARTICLE_POLICY, this.model, this.maxChars, this.maxCalls, this.maxOutputTokens, 'none']);
   }
-  async generate(source: SourceInput, signal?: AbortSignal): Promise<ArticleDraft> {
+  async generate(source: SourceInput, signal?: AbortSignal, observer?: GenerationObserver): Promise<ArticleDraft> {
     const chunks = splitSource(source.body, this.maxChars, this.maxCalls);
     if (!chunks.length) throw new KnowledgeError('empty-source');
     const output: string[] = [];
     const usage: ArticleUsage = { inputTokens: 0, outputTokens: 0, calls: 0 };
     for (let index = 0; index < chunks.length; index++) {
       signal?.throwIfAborted();
+      const call = { sequence: index + 1, model: this.model };
+      await observer?.onCall({ ...call, status: 'started', inputTokens: null, outputTokens: null });
       let response: Response;
       let payload: ResponseBody;
       try {
@@ -101,19 +103,25 @@ export class OpenAIArticleGenerator implements ArticleGenerator {
         if (!response.ok) throw new KnowledgeError('openai-http-' + response.status);
         payload = await response.json() as ResponseBody;
       } catch (error) {
+        await observer?.onCall({ ...call, status: 'unknown', inputTokens: null, outputTokens: null });
         if (error instanceof KnowledgeError) throw error;
         // Never expose upstream error bodies, request headers, prompts or credentials.
         throw new KnowledgeError(signal?.aborted ? 'request-cancelled' : 'openai-network-or-response-error');
       }
-      if (payload.status !== 'completed') throw new KnowledgeError('openai-incomplete-response');
-      const parts = payload.output?.filter(item => item.type === 'message').flatMap(item => item.content ?? []) ?? [];
+      const inputTokens = payload?.usage?.input_tokens, outputTokens = payload?.usage?.output_tokens;
+      const measured = Number.isSafeInteger(inputTokens) && Number.isSafeInteger(outputTokens) && inputTokens! >= 0 && outputTokens! >= 0;
+      // Record each received usage before validating output; rejected/partial output still consumed tokens.
+      await observer?.onCall({ ...call, status: measured ? 'reported' : 'unknown',
+        inputTokens: measured ? inputTokens! : null, outputTokens: measured ? outputTokens! : null });
+      if (payload?.status !== 'completed') throw new KnowledgeError('openai-incomplete-response');
+      if (!Array.isArray(payload.output)) throw new KnowledgeError('openai-invalid-article');
+      const parts = payload.output.filter(item => item?.type === 'message').flatMap(item => Array.isArray(item.content) ? item.content : []);
       if (parts.some(part => part.type === 'refusal')) throw new KnowledgeError('openai-refused');
       const text = parts.filter(part => part.type === 'output_text').map(part => part.text ?? '').join('\n').trim();
       if (!text || text.startsWith('---')) throw new KnowledgeError('openai-invalid-article');
       const normalized = text.replaceAll('\r\n', '\n');
       if (codeBlocks(chunks[index]).some(block => !normalized.includes(block))) throw new KnowledgeError('source-code-not-preserved');
-      const inputTokens = payload.usage?.input_tokens, outputTokens = payload.usage?.output_tokens;
-      if (!Number.isSafeInteger(inputTokens) || !Number.isSafeInteger(outputTokens) || inputTokens! < 0 || outputTokens! < 0) throw new KnowledgeError('openai-usage-missing');
+      if (!measured) throw new KnowledgeError('openai-usage-missing');
       usage.inputTokens += inputTokens!; usage.outputTokens += outputTokens!; usage.calls++;
       output.push(text);
     }

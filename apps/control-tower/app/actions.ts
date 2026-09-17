@@ -10,5 +10,5 @@ export async function reviewApprovalAction(formData: FormData): Promise<void> {
     throw new Error("Invalid approval review request");
   }
   await reviewApproval({ approvalId, decision });
-  revalidatePath("/");
+  revalidatePath("/operations");
 }

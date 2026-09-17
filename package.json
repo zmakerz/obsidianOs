@@ -22,9 +22,11 @@
     "db:migrate": "node --env-file-if-exists=apps/control-tower/.env.local packages/database/src/migrate.ts",
     "db:seed": "node --env-file-if-exists=apps/control-tower/.env.local packages/database/src/seed.ts",
     "test:scripts": "node --test scripts/test/*.test.mjs",
-    "knowledge:process": "node --env-file-if-exists=.env.local scripts/process-source.ts",
+    "knowledge:process": "node --env-file-if-exists=apps/control-tower/.env.local --env-file-if-exists=.env.local scripts/process-source.ts",
     "check:openai": "node --env-file-if-exists=.env.local scripts/check-openai.ts",
-    "typecheck:knowledge": "tsc -p packages/knowledge/tsconfig.json"
+    "typecheck:knowledge": "tsc -p packages/knowledge/tsconfig.json",
+    "test:database:integration": "node --test packages/database/test/integration.test.ts",
+    "knowledge:job": "node --env-file-if-exists=apps/control-tower/.env.local --env-file-if-exists=.env.local scripts/processing-job.ts"
   },
   "license": "MIT",
   "devDependencies": {

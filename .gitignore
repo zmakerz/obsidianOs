@@ -34,3 +34,6 @@ vault/90_logs/*
 
 # Transient single-writer lock for the local source/Article CLI
 vault/.business-os-write.lock
+
+# Local web Vault connection settings and disposable test Vault
+.business-os/

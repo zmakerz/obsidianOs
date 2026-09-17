@@ -8,7 +8,7 @@ Business OS는 자료와 회사 지식을 실제 업무·승인·측정으로 �
 
 - 연구 자료: Inbox → 불변 Raw → Article → 필요한 경우만 Wiki 반영 → 다음 작업에서 검색·재사용
 - 운영 기록: 근거 → 결정 → 반복 가능한 절차 → SOP. 모든 기록에 Article을 만들지 않음
-- Control Tower는 실제 작업·검토·결과를 보여주는 화면부터 연결
+- 웹은 최초 설정·Vault 연결·자료 가져오기·읽기·처리·검토의 기본 진입점. Obsidian은 같은 Markdown을 탐색·편집하며 CLI는 개발·진단용으로 유지
 - Company Profile은 회사별 전략·GEO/AEO 적용 전에 필요하며, 범용 자료 처리의 선행 조건은 아님
 
 ## 유지하는 경계
@@ -20,7 +20,7 @@ Business OS는 자료와 회사 지식을 실제 업무·승인·측정으로 �
 - 외부 발송·비용 변경·삭제·배포와 기존 지식 변경은 해당 범위의 승인을 확인
 - 특정 업종·모델·SaaS는 공통 엔진 밖의 설정 또는 Adapter로 연결
 
-Kernel → Business Pack → Industry Pack 방향은 유지하되, 필요해진 기능만 구현합니다. 현재 로컬 CLI가 공통 Raw/Article 서비스를 사용하며, Obsidian·웹과 지속 작업 DB 연결은 다음 구현 대상입니다.
+Kernel → Business Pack → Industry Pack 방향은 유지하되, 필요해진 기능만 구현합니다. 현재 로컬 CLI가 공통 Raw/Article 서비스를 사용하고, 웹은 같은 서비스의 Raw 저장과 로컬 Vault 읽기에 연결돼 있습니다. 선택적 CLI 모드로 처리 작업·시도·이벤트·사용량을 PostgreSQL에 저장합니다. 웹 AI 처리·Obsidian 처리 명령·강제 종료 복구는 다음 구현 대상입니다.
 
 현재 구현/검증 상태는 [ACTIVE](ACTIVE.md), 다음 완료 기준은 [Milestones](docs/MILESTONES.md)를 확인합니다.
 
@@ -34,5 +34,6 @@ Kernel → Business Pack → Industry Pack 방향은 유지하되, 필요해진 
 | 정본·권한·서비스 경계와 개선 방향 | [Architecture](docs/ARCHITECTURE.md) |
 | 바로 다음 작업과 단계별 합격 조건 | [Milestones](docs/MILESTONES.md) |
 | 이 컴퓨터에서 실행·설정하는 방법 | [README — English](README.md) · [한국어](README.ko.md) |
+| 개발 환경 이전·Git 동기화·새 에이전트 세션 인계 | [Contributing](CONTRIBUTING.md#resume-development-on-another-computer) |
 
 현재 동작은 코드와 테스트로 확인합니다. 목표 문서에 적혀 있다는 이유로 구현됐다고 판단하지 않습니다. 설계를 개선할 때는 해결할 실제 문제·검증 방법을 정하고 관련 결정을 갱신합니다.

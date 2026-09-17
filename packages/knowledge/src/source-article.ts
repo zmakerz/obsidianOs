@@ -1,4 +1,4 @@
-import { KnowledgeError, type ArticleGenerator, type ProcessResult, type SourceInput, type StoredDocument } from './article-types.ts';
+import { KnowledgeError, type ArticleGenerator, type GenerationObserver, type ProcessResult, type SourceInput, type StoredDocument } from './article-types.ts';
 import { digest, MarkdownVault, renderNote, type Note } from './markdown-vault.ts';
 
 function singleLine(value: string, limit: number): boolean {
@@ -31,8 +31,43 @@ export function providedDraft(body: string): ArticleGenerator {
   return { fingerprint: 'provided-draft-v1:' + digest(body), async generate() { return { body, mode: 'provided-draft' }; } };
 }
 
+export function sourceRequest(input: SourceInput, fingerprint: string) {
+  const source = normalizeInput(input);
+  if (!singleLine(fingerprint, 1000)) throw new KnowledgeError('invalid-generator-policy');
+  const contentHash = digest(source.body);
+  const rawId = 'raw-' + digest(JSON.stringify([source.sourceType, source.sourceUrl ?? '', source.contentMode, contentHash]));
+  return { source, rawId, requestHash: digest(JSON.stringify(['source-article-v1', rawId, source.domain, fingerprint])) };
+}
+
+async function preserveRaw(source: SourceInput, vault: MarkdownVault, now: Date, day: string): Promise<Note> {
+  const contentHash = digest(source.body);
+  const rawId = 'raw-' + digest(JSON.stringify([source.sourceType, source.sourceUrl ?? '', source.contentMode, contentHash]));
+  let raw = await vault.find('20_raw', rawId);
+  if (!raw) {
+    const path = '20_raw/' + source.sourceType + '/' + day + '-' + slug(source.title) + '-' + rawId.slice(4, 16) + '.md';
+    await vault.create(path, renderNote({
+      id: rawId, kind: 'raw', title: source.title, status: 'active', domain: source.domain,
+      created: day, updated: day, captured_at: now.toISOString(), capture_method: 'provided-text',
+      source_type: source.sourceType, source_url: source.sourceUrl ?? null, content_mode: source.contentMode, content_hash: contentHash,
+    }, source.body));
+    raw = await vault.find('20_raw', rawId);
+  }
+  if (!raw || raw.metadata.kind !== 'raw' || digest(raw.body) !== contentHash || raw.metadata.content_hash !== contentHash) throw new KnowledgeError('raw-content-conflict');
+  return raw;
+}
+
+/** Save only the original. No model call, Article or job-state file is created. */
+export async function captureSource(input: SourceInput, options: { vault: MarkdownVault; now?: Date }): Promise<StoredDocument> {
+  const source = normalizeInput(input);
+  if (!source.body.trim() || /^https?:\/\/\S+$/.test(source.body.trim())) throw new KnowledgeError('source-body-required');
+  const now = options.now ?? new Date();
+  const day = now.toISOString().slice(0, 10);
+  return options.vault.exclusive(async () => stored(await preserveRaw(source, options.vault, now, day)));
+}
+
 export async function processSource(input: SourceInput, options: {
   vault: MarkdownVault; generator: ArticleGenerator; now?: Date; timeZone?: string; signal?: AbortSignal;
+  observer?: GenerationObserver; checkCancelled?: () => Promise<void>;
 }): Promise<ProcessResult> {
   const source = normalizeInput(input);
   if (!source.body.trim() || /^https?:\/\/\S+$/.test(source.body.trim())) return { status: 'needs-input', reason: 'source-body-required' };
@@ -41,24 +76,13 @@ export async function processSource(input: SourceInput, options: {
   if (Number.isNaN(now.valueOf())) throw new KnowledgeError('invalid-date');
   const fingerprint = options.generator.fingerprint;
   if (!singleLine(fingerprint, 1000)) throw new KnowledgeError('invalid-generator-policy');
-  const contentHash = digest(source.body);
-  const rawId = 'raw-' + digest(JSON.stringify([source.sourceType, source.sourceUrl ?? '', source.contentMode, contentHash]));
-  const requestHash = digest(JSON.stringify(['source-article-v1', rawId, source.domain, fingerprint]));
+  const { rawId, requestHash } = sourceRequest(source, fingerprint);
   const articleId = 'article-' + requestHash;
   const vault = options.vault;
   return vault.exclusive(async () => {
     options.signal?.throwIfAborted();
-    let raw = await vault.find('20_raw', rawId);
-    if (!raw) {
-      const path = '20_raw/' + source.sourceType + '/' + day + '-' + slug(source.title) + '-' + rawId.slice(4, 16) + '.md';
-      await vault.create(path, renderNote({
-        id: rawId, kind: 'raw', title: source.title, status: 'active', domain: source.domain,
-        created: day, updated: day, captured_at: now.toISOString(), capture_method: 'provided-text',
-        source_type: source.sourceType, source_url: source.sourceUrl ?? null, content_mode: source.contentMode, content_hash: contentHash,
-      }, source.body));
-      raw = await vault.find('20_raw', rawId);
-    }
-    if (!raw || raw.metadata.kind !== 'raw' || digest(raw.body) !== contentHash || raw.metadata.content_hash !== contentHash) throw new KnowledgeError('raw-content-conflict');
+    await options.checkCancelled?.();
+    const raw = await preserveRaw(source, vault, now, day);
     const existing = await vault.find('80_outputs/articles', articleId);
     if (existing) {
       if (existing.metadata.kind !== 'article' || existing.metadata.raw_id !== rawId || existing.metadata.request_hash !== requestHash
@@ -69,8 +93,10 @@ export async function processSource(input: SourceInput, options: {
       return { status: 'existing', raw: stored(raw), article: stored(existing) };
     }
     // Use the immutable snapshot's title so a repeated capture's display-title change does not change model input.
-    const draft = await options.generator.generate({ ...source, title: String(raw.metadata.title) }, options.signal);
+    await options.checkCancelled?.();
+    const draft = await options.generator.generate({ ...source, title: String(raw.metadata.title) }, options.signal, options.observer);
     options.signal?.throwIfAborted();
+    await options.checkCancelled?.();
     if (!draft.body?.trim() || Buffer.byteLength(draft.body) > 2_000_000 || !['ai', 'provided-draft'].includes(draft.mode)) throw new KnowledgeError('invalid-article-result');
     // An external editor may have changed Raw while the model request was running.
     if (digest(await vault.read(raw.path)) !== raw.revisionHash) throw new KnowledgeError('raw-changed-during-processing');

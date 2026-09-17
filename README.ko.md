@@ -6,7 +6,11 @@ Obsidian, Markdown, AI를 연결하는 로컬 우선 지식·업무 운영 기�
 
 자료와 회사 지식을 업무·승인·측정으로 연결하는 초기 오픈소스 프로젝트입니다. 개인 KnowledgeOS와 회사 지식의 소유 영역을 구분하며, 첫 목표는 **자료 → 충실한 Article → 필요한 경우만 Wiki → 다음 업무에서 재사용**입니다.
 
-**개발 초기 / 로컬 데모.** 현재는 Kernel·Vault 골격, Control Tower Demo와 초기 PostgreSQL 코드가 있습니다. M2.1 첫 단계로 로컬 CLI의 Raw 보존·AI Article 생성이 연결됐습니다. Obsidian 처리 명령, PostgreSQL 작업 큐·복구, 지속 Worker와 전체 승인·실행 연결은 아직 완성되지 않았습니다. 운영용·공개 서버용 완성 제품으로 사용하지 마세요.
+**개발 초기 / 로컬 데모.** 웹 자료실에서 로컬 Markdown Vault를 연결하고, 기존 노트를 읽고, 파일·붙여넣은 본문을 Raw 원문으로 저장할 수 있습니다. 연결 설정과 저장된 문서는 새로고침·서비스 재시작 후에도 유지됩니다. Kernel·Vault 골격, 운영 Demo와 초기 PostgreSQL 코드도 있습니다. 로컬 CLI의 Raw 보존·AI Article 생성과 선택적 PostgreSQL 작업·시도·이벤트·호출별 사용량 저장이 연결됐습니다. Obsidian 처리 명령, PostgreSQL 작업 큐·복구, 지속 Worker와 전체 승인·실행 연결은 아직 완성되지 않았습니다. 운영용·공개 서버용 완성 제품으로 사용하지 마세요.
+
+![테스트 보관함에 연결된 실제 웹 자료실](docs/images/web-library.jpg)
+
+*2026년 9월 17일, 합성 자료로 촬영한 실제 로컬 웹 화면입니다. 현재 앱은 한국어 UI이며 앞으로 구성이 달라질 수 있습니다.*
 
 ## 프로젝트가 만드는 흐름
 
@@ -18,14 +22,15 @@ Obsidian, Markdown, AI를 연결하는 로컬 우선 지식·업무 운영 기�
 
 | 현재 사용 가능 | 다음 구현 대상 |
 |---|---|
-| 로컬 CLI의 Raw 보존·제공 초안 저장·AI Article 생성 | PostgreSQL 작업 기록·중단 복구 |
+| 로컬 CLI의 Raw 보존·제공 초안 저장·AI Article 생성 | 강제 종료 복구·구간 checkpoint |
 | 같은 요청의 기존 결과 반환·수동 수정 충돌 감지 | 구간별 결과 저장·실사용 글 품질 검증 |
 | 공개 Obsidian 샘플 Vault와 구조/링크 검사 | Obsidian 처리 명령·웹 공통 작업 화면 |
-| Control Tower Demo와 초기 DB 조회 | 실제 변경 내용 검토·승인 후 선택적 Wiki 반영·부분 검색 |
+| 로컬 Vault 연결·파일/본문 영속 저장·검색·읽기·Obsidian 링크 | 웹 AI 처리·URL 수집·실시간 파일 변경 감지 |
+| `/operations`의 운영 Demo와 초기 DB 조회 | 실제 변경 내용 검토·승인 후 선택적 Wiki 반영·부분 검색 |
 
 **언어 범위:** 이 README는 영어·한국어를 제공합니다. 현재 AI Article 작성 정책은 한국어이며, 상세 설계 문서와 샘플 Vault도 대부분 한국어입니다. README의 언어 선택은 앱이나 생성 글의 언어를 변경하지 않습니다.
 
-[빠른 시작](#빠른-시작--api-키와-db-없이) · [자료 처리](#자료--raw--article--m21-첫-구현) · [Obsidian](#obsidian과-회사-지식) · [개발 이어가기](#새-컴퓨터에서-이어가기) · [로드맵](#방향과-기여)
+[빠른 시작](#빠른-시작--api-키와-db-없이) · [자료 처리](#자료--raw--article--m21-첫-구현) · [Obsidian](#obsidian과-회사-지식) · [처음 사용하기](#처음-사용하기) · [로드맵](#방향과-기여)
 
 ## 빠른 시작 — API 키와 DB 없이
 
@@ -40,24 +45,48 @@ corepack pnpm demo
 corepack pnpm dev
 ```
 
-Corepack이 없는 환경에서는 pnpm 11.19.0을 설치한 뒤 명령의 corepack 접두사를 빼고 실행합니다. Demo에는 .env 파일이 필요하지 않습니다. DATABASE_URL을 설정하면 실제 DB 모드로 전환되므로 첫 실행에서는 비워둡니다.
+Corepack이 없는 환경에서는 pnpm 11.19.0을 설치한 뒤 명령의 corepack 접두사를 빼고 실행합니다. Demo에는 .env 파일이 필요하지 않습니다. DATABASE_URL을 설정하면 `/operations`가 실제 DB 모드로 전환되므로 첫 실행에서는 비워둡니다. Vault 읽기와 Raw 저장에는 PostgreSQL과 API 키가 필요하지 않습니다.
 
-웹은 http://127.0.0.1:3000 에서 열립니다. dev/start는 로컬 loopback에 바인딩합니다. Demo KPI·추천·활동은 합성 자료이고 승인 버튼은 비활성화됩니다.
+자료실은 [로컬 웹](http://127.0.0.1:3000)에서 열립니다. dev/start는 로컬 loopback에 바인딩합니다. 기존 [운영 Demo](http://127.0.0.1:3000/operations)는 별도 경로에 보존했습니다. Demo KPI·추천·활동은 합성 자료이고 승인 버튼은 비활성화됩니다.
 
-## 새 컴퓨터에서 이어가기
+## 처음 사용하기
 
-위 빠른 시작 명령으로 복제·설치·검증합니다. 이미 복제한 저장소가 있고 로컬 변경이 없다면 `git pull --ff-only`로 갱신합니다.
+위 명령으로 소스에서 실행하는 단계입니다. 설치 프로그램과 DB 자동 준비는 아직 없습니다.
 
-- 개발 도구에서는 저장소 루트를 열고 AGENTS.md → PROJECT.md → ACTIVE.md 순서로 현재 상태를 확인합니다. M2.0은 완료했고 M2.1은 진행 중입니다. 로컬 자료 → Raw → Article CLI 이후 PostgreSQL 작업 상태·복구를 연결합니다.
-- Obsidian에서는 저장소 안의 vault 폴더만 열고 40_navigation/HOME.md에서 시작합니다.
-- GitHub에는 공개 코드·샘플만 있습니다. API 키(.env 파일), 개인/회사 실제 자료, Obsidian 설정·플러그인, 의존성 설치본과 DB 데이터는 함께 내려오지 않습니다. 필요한 항목은 별도로 설정하거나 안전하게 옮깁니다.
-- 현재 Demo·테스트에는 키가 필요하지 않습니다. 자료 처리 CLI는 루트 .env.local을 읽습니다. 키 파일 존재와 실제 API 연결 성공은 별도로 확인합니다.
+1. **설정 → 테스트 보관함으로 시작**을 누릅니다. 합성 노트 3개가 있는 별도 로컬 보관함을 만들고 원문 저장을 활성화합니다. API 키와 DB가 없어도 됩니다.
+2. **자료 추가**에서 UTF-8 `.md`·`.txt` 파일을 선택하거나 제목·본문을 붙여넣습니다. 원문은 `20_raw/document/`의 Markdown 파일로 저장되며 AI는 자동 실행하지 않습니다.
+3. 브라우저를 새로고침합니다. 연결과 저장된 자료가 그대로 남는지 확인합니다. 검색·카드/목록 전환·문서 선택 후 **읽기 / 원문** 보기를 사용해보세요.
+4. Obsidian의 **보관함으로 폴더 열기**에서 설정 화면에 표시된 동일한 폴더를 선택합니다. 이후 웹의 **Obsidian에서 열기**가 그 파일을 엽니다. Obsidian 설치와 브라우저의 외부 앱 링크 허용이 필요합니다. 앱 내부 브라우저에서 반응이 없으면 같은 웹 주소를 Safari나 Chrome에서 열고 외부 앱 실행을 허용하세요.
+5. Obsidian에서 일반 테스트 노트를 수정한 뒤 웹의 **자료 새로고침**을 누르면 파일 변경을 다시 읽습니다. 가져온 Raw 원문은 그대로 보존하는 용도입니다.
 
-설계가 바뀐 이유와 확정된 사용자 기준은 [Product](docs/PRODUCT.md#설계-이력과-확정-기준), 문서별 역할은 [PROJECT](PROJECT.md#대화-없이-이어가는-문서-지도)에 있습니다. 과거 대화 링크를 다시 읽지 않아도 여기서 개발을 이어갈 수 있도록 유지합니다. 단, 다른 컴퓨터에는 **커밋하고 push한 문서·코드만** 전달됩니다. ACTIVE에 적힌 이전 컴퓨터의 검증은 현재 기기의 설치·설정 확인을 대신하지 않습니다.
+![원문 보기·다운로드·Obsidian 열기를 제공하는 문서 읽기 화면](docs/images/web-reader.jpg)
 
-새 세션에서 사용할 요청 예시:
+*웹과 Obsidian은 같은 Markdown 파일을 사용합니다. 위 코드는 화면 검증용 합성 노트이며 AI 생성 결과가 아닙니다.*
 
-> PROJECT.md와 ACTIVE.md를 먼저 읽고, 관련 PRODUCT 결정과 MILESTONES의 다음 미완료 항목을 확인해 이어가자. 현재 코드와 검증 결과로 구현 상태를 확인하고, 이번 변경과 남은 일을 기존 문서에 갱신해줘.
+![웹에서 연 동일한 테스트 노트를 Obsidian에서 편집](docs/images/obsidian-roundtrip.jpg)
+
+*Obsidian에서 추가한 연결 확인 문장을 웹 자료실에서도 다시 읽었습니다.*
+
+### 내 보관함 연결하기
+
+설정에서 기존 보관함의 **절대 경로**와 `30_wiki, 80_outputs/articles`처럼 쉼표로 구분한 **상대 폴더 경로**를 입력합니다. 보관함 전체를 읽으려는 경우에만 `.`을 사용합니다. 숨김 폴더·심볼릭 링크는 제외합니다. 프로젝트 전용 ID/frontmatter가 없는 기존 노트도 읽으며, 연결만으로 내용을 변경하지 않습니다.
+
+**새 자료를 20_raw/document에 원문으로 저장하도록 허용**을 선택하지 않으면 읽기 전용입니다. 허용하면 해당 폴더에 새 Raw를 저장하고 자료실에도 포함합니다. 기존 문서는 웹에서 덮어쓰거나 삭제하지 않습니다. 같은 원문을 반복해서 넣으면 기존 Raw를 재사용하며, 이미 수동 수정한 Raw는 충돌로 표시합니다. 연결 해제는 설정만 해제하고 파일은 남깁니다.
+
+기본 실행 명령에서는 연결 설정이 `apps/control-tower/.business-os/vault.json`, 테스트 보관함은 `apps/control-tower/.business-os/demo-vault/`에 생깁니다. 모두 로컬 전용이며 Git에서 제외합니다. 직접 실행 위치를 바꾸면 `.business-os/` 위치도 달라집니다. 실제 자료는 공개 샘플 `vault/` 대신 비공개 보관함에 넣으세요.
+
+### 현재 범위와 검증
+
+- 로컬 단일 운영자용입니다. 쓰기는 loopback host·동일 origin·로컬 세션을 확인합니다. 다중 사용자 인증 기능은 아닙니다.
+- 목록은 깊이 12, 문서 300개·항목 3,000개까지 확인합니다. 파일별 앞 8 KB를 읽어 본문 1,200자 미리보기를 반환합니다. 검색 대상은 조회된 제목·태그·경로·미리보기이며 전체 Vault 의미 검색이 아닙니다. 상한에 도달하면 읽을 폴더 범위를 좁혀주세요.
+- 문서를 선택하면 전체 본문을 읽습니다(메타데이터 포함 파일 2.1 MB까지). 화면은 앞 50,000자, 다운로드는 Vault frontmatter를 제외한 **전체 본문**입니다. 기본 제목·목록·코드를 표시하고 HTML은 실행하지 않습니다. Obsidian 전용 문법과 첨부는 완전히 렌더링하지 않습니다.
+- 가져오기는 UTF-8 파일당 2 MB, 한 번에 20개·합계 10 MB까지입니다. 연결한 자료는 파일로 남습니다. **연결 전** 샘플 화면은 탭 미리보기이므로 추가 자료가 새로고침하면 사라집니다. 제목/태그 편집과 목록 제외/되돌리기는 이 임시 자료에만 적용합니다.
+- 로컬 요청은 30초 후 대기를 끝내고 오류를 안내합니다. 저장 요청의 응답이 끊겼다면 저장 결과는 미확인 상태이므로 자료 새로고침으로 확인한 뒤 재시도하세요. 자동으로 다시 쓰지 않습니다.
+- 외부 편집은 수동 새로고침으로 반영합니다. 웹 AI 생성·키 설정·URL/PDF 수집·지속 작업 복구·Wiki 승인은 남은 구현입니다. AI Article 생성은 아래 별도 CLI에서 가능합니다.
+
+합성 자료로 **웹 파일 업로드·본문 붙여넣기 → 실제 Raw 저장 → 새로고침 → 전체 본문 읽기**를 확인했습니다. 자동 테스트는 읽기 전용/폴더 경계, 중복 방지, 외부 편집 재조회, 새 프로세스의 설정 복원을 포함합니다. macOS에서 Safari → Obsidian 열기 → 합성 노트 편집 → 웹 새로고침 왕복도 Obsidian 1.13.7로 확인했습니다. 검증한 앱 내부 브라우저는 외부 앱이 열리지 않아 이 단계에서는 일반 브라우저를 사용합니다. 서비스 재시작 후 연결과 테스트 문서 5개도 복원됐습니다.
+
+남은 방향은 [제품 사용 흐름](docs/PRODUCT.md#웹-중심의-첫-사용과-일상-흐름)과 [구현 순서](docs/MILESTONES.md#m22--웹-설정자료실--obsidian-연결--선택적-wiki)에 정리했습니다.
 
 ## 자료 → Raw → Article — M2.1 첫 구현
 
@@ -85,9 +114,30 @@ corepack pnpm check:openai
 - URL만 있거나 본문이 비면 needs-input. 모델 오류·응답 잘림·코드 누락은 실패로 반환하고 Raw를 유지합니다. 사실/문체의 전체 품질을 자동 보장하는 검사는 아닙니다.
 - AI 입력은 문단·코드 블록을 유지하며 구간당 최대 12,000자, 최대 8회, 응답당 최대 8,192 출력 토큰입니다. 자동 재시도는 없습니다. 나눌 수 없는 긴 문단/코드나 총량 초과는 명시적으로 실패하며 잘라내지 않습니다.
 
-현재는 단일 로컬 실행용입니다. 동시 쓰기는 .business-os-write.lock으로 거부합니다. 정상 오류/취소 시 잠금은 해제되지만 강제 종료 후 남은 잠금은 자동으로 훔치지 않습니다. 실행 중인 프로세스가 없는지 확인한 뒤 수동 복구가 필요합니다. 부분 생성 구간의 재호출 방지, 강제 종료 자동 복구, DB 작업·시도·이벤트 저장은 다음 구현 대상입니다. 이 상태를 M2.1 전체 완료나 운영 Worker로 간주하지 않습니다.
+현재는 단일 로컬 실행용입니다. 동시 쓰기는 .business-os-write.lock으로 거부합니다. 정상 오류/취소 시 잠금은 해제되지만 강제 종료 후 남은 잠금은 자동으로 훔치지 않습니다. 실행 중인 프로세스가 없는지 확인한 뒤 수동 복구가 필요합니다. 부분 생성 구간의 재호출 방지와 강제 종료 자동 복구는 다음 구현 대상이며, DB 작업 기록은 아래 선택 모드로 사용할 수 있습니다. 이 상태를 M2.1 전체 완료나 운영 Worker로 간주하지 않습니다.
 
 API 계약: [OpenAI Responses](https://developers.openai.com/api/reference/responses/create), [GPT-5.6 Terra](https://developers.openai.com/api/docs/models/gpt-5.6-terra). 테스트는 합성 자료와 모의 API로 실행하며 사용자 자료나 API 키가 필요하지 않습니다.
+
+### PostgreSQL에 처리 작업 기록하기
+
+별도의 로컬 DB에서 `corepack pnpm db:migrate`를 실행하고 기존 workspace를 지정합니다. 합성 시험에는 `corepack pnpm db:seed`가 만드는 `workspace-demo`를 사용할 수 있습니다. `DATABASE_URL`은 셸 환경이나 Git에서 제외된 `apps/control-tower/.env.local`에 설정합니다. 처리 명령은 AI 설정용 루트 `.env.local`도 읽습니다(루트 파일이 앱 파일보다 우선, 셸 환경이 최우선). 실제 접속 정보는 커밋하지 않습니다.
+
+기존 처리 명령에 `--track-job --workspace workspace-demo`를 추가합니다. API를 호출하지 않는 제공 초안 예시입니다.
+
+```sh
+corepack pnpm knowledge:process -- --vault "/absolute/private-vault" --source-root "/absolute/input" --source "/absolute/input/source.md" --title "자료 제목" --draft "/absolute/input/draft.md" --track-job --workspace workspace-demo
+corepack pnpm knowledge:job --workspace workspace-demo
+corepack pnpm knowledge:job --workspace workspace-demo --job JOB_ID
+corepack pnpm knowledge:job --workspace workspace-demo --job JOB_ID --cancel
+```
+
+- workspace·실제 Vault 경로 hash·원문·생성 정책으로 중복 요청을 찾습니다. 완료된 같은 요청은 파일 재조회나 AI 호출 없이 저장된 작업/결과를 반환합니다. 과거 처리 기록이므로 현재 파일 경로·revision은 달라졌을 수 있습니다.
+- 재시도 가능한 실패 작업은 같은 처리 명령에 `--retry`를 붙입니다. 첫 요청의 `--max-attempts`(기본 3, 허용 1~5)가 유지되며 나중에 늘릴 수 없습니다. 자동 재시도는 없습니다. 입력/정책 변경 또는 Vault 이동은 새 요청입니다.
+- CLI를 다시 실행해도 조회됩니다. 목록은 최근 50개, 개별 조회는 시도·이벤트·모델 호출별 기록을 제공합니다. 앞 구간의 사용량은 뒤 구간 실패에도 남고, 모르는 토큰은 0이 아닌 `null`입니다. 금액 환산 기능은 아닙니다.
+- 대기 작업은 바로 취소하고 실행 중에는 처리 프로세스가 생성 도중·파일 게시 전에 취소 요청을 확인합니다. 이미 게시한 파일은 유지하며 게시 후 도착한 취소보다 성공 결과가 우선할 수 있습니다.
+- 응답 손실/사용량 불명은 검토 필요 상태로 두며 `--retry`로 재호출하지 않습니다. 강제 종료·DB 기록 불명은 실행 중 상태가 남고 자동 회수하지 않습니다. lease 복구와 명시적 검토/재개 명령은 아직 없으므로 상태나 잠금을 임의 초기화하지 않습니다.
+
+이 모드는 현재 CLI에서 한 번의 시도를 실행합니다. 백그라운드 Worker·웹 AI 처리를 시작하지 않습니다. `--track-job` 없이 쓰면 기존 파일 기반 CLI가 그대로 동작합니다.
 
 ## 실행 가능한 최소 예제
 
@@ -112,7 +162,7 @@ corepack pnpm typecheck
 corepack pnpm build
 ```
 
-CI는 같은 명령과 demo를 실행합니다. 기존 테스트는 Kernel/승격 정책/DB repository를 검증하며 DB 테스트는 FakeDatabase를 사용합니다. 실제 PostgreSQL·AI·Obsidian end-to-end는 별도 완료 조건입니다. CLI 입력·경로 경계의 회귀 테스트를 포함합니다. YAML/kind별 속성·중복 ID·Wikilink 목적지/헤딩/첨부·HOME 도달성을 읽기 전용으로 검사합니다. 일반 Markdown 링크와 외부 URL의 유효성은 이 검사 범위가 아닙니다.
+CI에는 위 명령과 별도의 PostgreSQL 18 통합 테스트가 설정돼 있습니다. 기본 테스트에는 DB와 API 키가 필요하지 않습니다. 실제 DB 검사는 버전 migration·rollback·동시 승인·workspace 제약·웹 서버 연결을 검증합니다. 격리 환경과 `corepack pnpm test:database:integration` 사용법은 [DB 검증 안내](CONTRIBUTING.md#live-database-verification)를 참고하세요. AI 처리와 Obsidian end-to-end 검증은 별도입니다. CLI 입력·경로 경계, YAML/kind별 속성·중복 ID·Wikilink 목적지/헤딩/첨부·HOME 도달성도 검사합니다. 일반 Markdown 링크와 외부 URL의 유효성은 이 검사 범위가 아닙니다.
 
 ## 코드 구성
 
@@ -121,7 +171,7 @@ CI는 같은 명령과 demo를 실행합니다. 기존 테스트는 Kernel/승�
 | packages/kernel | 승인·운영 루프 기초 모델 |
 | packages/knowledge | 지식 참조·승격 정책, 로컬 Raw/Article 서비스와 Markdown/OpenAI Adapter |
 | packages/database | 초기 PostgreSQL schema/repository와 Demo snapshot |
-| apps/control-tower | Demo/DB 조회 웹 화면 |
+| apps/control-tower | 로컬 Vault 자료실·Raw 가져오기 + 운영 Demo/DB 조회 |
 | apps/worker | 메모리 Loop 예제; 운영 Worker는 미구현 |
 | packs/marketing | 후속 GEO/AEO 업무 모델 |
 | vault | Obsidian에서 별도로 열 수 있는 공개 샘플·템플릿 Vault |
@@ -157,7 +207,7 @@ node scripts/propose-knowledge-promotion.mjs --vault "/absolute/company-vault" -
 - 실제 회사 설명·목표는 회사별 업무 적용 전에 입력합니다. 범용 처리 개발의 선행 조건은 아닙니다.
 - 이 공개 저장소의 vault는 샘플입니다. 실제 회사/개인 자료는 저장소 밖이나 Git에서 제외한 local-vault/에 보관하세요. 이미 추적 중인 파일은 .gitignore만으로 보호되지 않습니다.
 - API 키·토큰·.env.local·Obsidian 플러그인 설정·사적 원문은 커밋하지 않습니다.
-- DB 사용은 별도 테스트 DB로 제한합니다. 초기 migration은 버전 관리/업그레이드 검증이 아직 없습니다.
+- DB 시험에는 별도의 빈 DB를 사용합니다. migration은 버전·checksum·동시 실행을 관리하고 실패 시 되돌립니다. 변경 이력 없는 기존 DB의 자동 채택은 미지원이며 별도 baseline 검토가 필요합니다.
 - DB 모드의 actor 문자열은 사용자 인증이 아닙니다. 로그인·회사 격리·승인 payload 결합 전에는 네트워크/팀 서비스로 공개하지 않습니다.
 - PostgreSQL 설정 예시는 apps/control-tower/.env.example, 명령은 pnpm db:migrate / pnpm db:seed입니다. seed는 합성 자료입니다.
 
@@ -169,7 +219,7 @@ node scripts/propose-knowledge-promotion.mjs --vault "/absolute/company-vault" -
 |---|---|---|
 | M2.0 | 기준선과 Obsidian 사용성 복구 | 정의한 범위에서 완료 |
 | M2.1 | 자료 → Raw → Article, 지속 가능한 처리 | 진행 중; 로컬 CLI 구현 |
-| M2.2 | Obsidian·웹 연결, 선택적 Wiki, 검색 | 예정 |
+| M2.2 | Obsidian·웹 연결, 선택적 Wiki, 검색 | Vault 연결·읽기·Raw 저장 첫 구현; 전체 단계 미완료 |
 | M3 | 측정과 피드백을 포함한 실제 회사 업무 한 종류 | 예정 |
 | M4 | 인증·회사 격리·백업 복구·운영 등 B2B 제공 준비 | 예정 |
 

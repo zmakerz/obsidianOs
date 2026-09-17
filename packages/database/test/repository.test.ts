@@ -12,7 +12,7 @@ class FakeDatabase implements TransactionalDatabase {
   ): Promise<QueryResult<Row>> {
     this.calls.push({ text, values });
     const rows = text.includes("UPDATE approval_requests") ? [{ id: "approval-1" }] : [];
-    return { rows: rows as Row[] };
+    return { rows: rows as unknown as Row[] };
   }
 
   async transaction<T>(operation: (executor: QueryExecutor) => Promise<T>): Promise<T> {

@@ -9,6 +9,20 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: business_os_test
+          POSTGRES_PASSWORD: local-ci-only
+          POSTGRES_DB: business_os_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U business_os_test -d business_os_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
@@ -19,6 +33,9 @@ jobs:
       - uses: pnpm/action-setup@v4
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
+      - run: pnpm test:database:integration
+        env:
+          TEST_DATABASE_URL: postgresql://business_os_test:local-ci-only@127.0.0.1:5432/business_os_test
       - run: pnpm demo
       - run: pnpm typecheck
       - run: pnpm build

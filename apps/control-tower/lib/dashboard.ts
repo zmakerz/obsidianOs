@@ -10,13 +10,9 @@ export async function loadDashboard(): Promise<DashboardSnapshot> {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) return createDemoDashboardSnapshot();
 
-  const { createPostgresControlTowerRepository } = await import("@business-os/database/postgres");
-  const { repository, database } = createPostgresControlTowerRepository(connectionString);
-  try {
-    return await repository.getDashboardSnapshot(workspaceId);
-  } finally {
-    await database.close();
-  }
+  const { getSharedPostgresControlTowerRepository } = await import("@business-os/database/postgres");
+  const { repository } = getSharedPostgresControlTowerRepository(connectionString);
+  return repository.getDashboardSnapshot(workspaceId);
 }
 
 export async function reviewApproval(input: {
@@ -25,17 +21,13 @@ export async function reviewApproval(input: {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error("Approval changes require PostgreSQL mode");
 
-  const { createPostgresControlTowerRepository } = await import("@business-os/database/postgres");
-  const { repository, database } = createPostgresControlTowerRepository(connectionString);
-  try {
-    await repository.reviewApproval({
-      workspaceId,
-      approvalId: input.approvalId,
-      decision: input.decision,
-      actorId: process.env.BUSINESS_OS_OPERATOR_ID ?? "local-owner",
-      note: input.note,
-    });
-  } finally {
-    await database.close();
-  }
+  const { getSharedPostgresControlTowerRepository } = await import("@business-os/database/postgres");
+  const { repository } = getSharedPostgresControlTowerRepository(connectionString);
+  await repository.reviewApproval({
+    workspaceId,
+    approvalId: input.approvalId,
+    decision: input.decision,
+    actorId: process.env.BUSINESS_OS_OPERATOR_ID ?? "local-owner",
+    note: input.note,
+  });
 }

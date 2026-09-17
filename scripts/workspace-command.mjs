@@ -8,8 +8,10 @@ if (!manager || !['dev', 'build', 'typecheck'].includes(task)) {
 }
 const root = resolve(import.meta.dirname, '..');
 if (task === 'typecheck') {
-  const result = spawnSync(process.execPath, [resolve(root, 'node_modules/typescript/bin/tsc'), '-p', 'packages/knowledge/tsconfig.json'], { cwd: root, stdio: 'inherit' });
-  if (result.status !== 0) process.exit(result.status ?? 1);
+  for (const project of ['knowledge', 'database']) {
+    const result = spawnSync(process.execPath, [resolve(root, 'node_modules/typescript/bin/tsc'), '-p', `packages/${project}/tsconfig.json`], { cwd: root, stdio: 'inherit' });
+    if (result.status !== 0) process.exit(result.status ?? 1);
+  }
 }
 const child = spawnSync(process.execPath, [manager, '--filter', '@business-os/control-tower', task], { cwd: root, stdio: 'inherit' });
 process.exit(child.status ?? 1);

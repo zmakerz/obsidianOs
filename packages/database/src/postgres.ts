@@ -18,6 +18,7 @@ class PostgresDatabase implements TransactionalDatabase {
 
   async transaction<T>(operation: (executor: QueryExecutor) => Promise<T>): Promise<T> {
     const client: PoolClient = await this.pool.connect();
+    let discard = false;
     try {
       await client.query("BEGIN");
       const executor: QueryExecutor = {
@@ -30,10 +31,10 @@ class PostgresDatabase implements TransactionalDatabase {
       await client.query("COMMIT");
       return result;
     } catch (error) {
-      await client.query("ROLLBACK");
+      try { await client.query("ROLLBACK"); } catch { discard = true; }
       throw error;
     } finally {
-      client.release();
+      client.release(discard);
     }
   }
 
@@ -41,10 +42,37 @@ class PostgresDatabase implements TransactionalDatabase {
 }
 
 export function createPostgresDatabase(connectionString: string): TransactionalDatabase {
-  return new PostgresDatabase(new Pool({ connectionString, max: 5, idleTimeoutMillis: 10_000 }));
+  const pool = new Pool({
+    connectionString, max: 5, idleTimeoutMillis: 10_000,
+    connectionTimeoutMillis: 5_000, statement_timeout: 60_000,
+    idle_in_transaction_session_timeout: 60_000, application_name: "business-os",
+  });
+  // pg removes failed idle clients. Handle the event without logging credentials/SQL.
+  pool.on("error", () => { console.error("PostgreSQL idle connection closed; a later request will reconnect."); });
+  return new PostgresDatabase(pool);
 }
 
 export function createPostgresControlTowerRepository(connectionString: string) {
   const database = createPostgresDatabase(connectionString);
   return { repository: new ControlTowerRepository(database), database };
+}
+
+type SharedDatabase = ReturnType<typeof createPostgresControlTowerRepository> & { connectionString: string };
+const runtime = globalThis as typeof globalThis & { __businessOsPostgres?: SharedDatabase };
+
+/** Server runtime only; shared across requests and development module reloads. */
+export function getSharedPostgresControlTowerRepository(connectionString: string) {
+  if (runtime.__businessOsPostgres && runtime.__businessOsPostgres.connectionString !== connectionString) {
+    throw new Error("Database configuration changed; restart the server to switch databases");
+  }
+  runtime.__businessOsPostgres ??= { connectionString, ...createPostgresControlTowerRepository(connectionString) };
+  const { database, repository } = runtime.__businessOsPostgres;
+  return { database, repository };
+}
+
+/** Process shutdown/test teardown only, after in-flight work has finished. */
+export async function closeSharedPostgresDatabase(): Promise<void> {
+  const shared = runtime.__businessOsPostgres;
+  delete runtime.__businessOsPostgres;
+  await shared?.database.close();
 }

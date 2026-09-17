@@ -11,6 +11,11 @@ export interface SourceInput {
   contentMode?: 'full' | 'excerpt';
 }
 export interface ArticleUsage { inputTokens: number; outputTokens: number; calls: number }
+export interface ModelCall {
+  sequence: number; model: string; status: 'started' | 'reported' | 'unknown';
+  inputTokens: number | null; outputTokens: number | null;
+}
+export interface GenerationObserver { onCall(call: ModelCall): Promise<void> }
 export interface ArticleDraft {
   body: string;
   mode: 'provided-draft' | 'ai';
@@ -20,7 +25,7 @@ export interface ArticleDraft {
 export interface ArticleGenerator {
   /** Include all output-affecting policy/model/options in this value. Never include credentials. */
   fingerprint: string;
-  generate(source: SourceInput, signal?: AbortSignal): Promise<ArticleDraft>;
+  generate(source: SourceInput, signal?: AbortSignal, observer?: GenerationObserver): Promise<ArticleDraft>;
 }
 export interface StoredDocument {
   id: string;
