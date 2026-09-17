@@ -4,12 +4,24 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.19.0",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "check:structure": "node scripts/verify-structure.mjs",
+    "check:vault": "node scripts/vault-lint.mjs",
     "test:kernel": "node --test packages/kernel/test/approval.test.ts packages/kernel/test/operating-loop.test.ts",
     "test:knowledge": "node --test packages/knowledge/test/promotion.test.ts",
-    "test": "pnpm run check:structure && pnpm run test:kernel && pnpm run test:knowledge",
-    "demo": "node apps/worker/src/demo.ts"
-  }
+    "test:database": "node --test packages/database/test/dashboard.test.ts packages/database/test/repository.test.ts",
+    "test": "node scripts/verify-structure.mjs && node scripts/vault-lint.mjs && node --test packages/kernel/test/approval.test.ts packages/kernel/test/operating-loop.test.ts packages/knowledge/test/promotion.test.ts packages/database/test/dashboard.test.ts packages/database/test/repository.test.ts && node --test scripts/test/*.test.mjs",
+    "demo": "node apps/worker/src/demo.ts",
+    "knowledge:propose": "node scripts/propose-knowledge-promotion.mjs",
+    "dev": "pnpm --filter @business-os/control-tower dev",
+    "build": "pnpm --filter @business-os/control-tower build",
+    "typecheck": "pnpm --filter @business-os/control-tower typecheck",
+    "db:migrate": "node --env-file-if-exists=apps/control-tower/.env.local packages/database/src/migrate.ts",
+    "db:seed": "node --env-file-if-exists=apps/control-tower/.env.local packages/database/src/seed.ts",
+    "test:scripts": "node --test scripts/test/*.test.mjs"
+  },
+  "license": "MIT"
 }

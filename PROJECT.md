@@ -1,26 +1,25 @@
 # Project
 
-Business OS는 회사의 사람·업무·데이터·지식·SOP·외부 서비스를 연결하고, AI가 운영 루프를 보조하며 사람이 중요한 실행을 승인하는 B2B 운영 플랫폼입니다.
+Business OS는 자료와 회사 지식을 실제 업무·승인·측정으로 연결하는 운영 플랫폼입니다. 최종 제품은 B2B를 지향하지만, 첫 릴리스는 로컬 단일 운영자의 지식 작업 흐름을 완성합니다.
 
-## 제품 계층
+## 현재 우선순위
 
-1. Platform Kernel: Organization, Workspace, Task, Workflow, Approval, Audit, Metrics
-2. Business Pack: Marketing, CRM, Sales, Operations
-3. Industry Pack: 교육, 에이전시, 커머스 등 업종별 조합
+첫 릴리스: **범용 기반 + 자료 → 정리글 → 회사 지식 흐름부터 완성**.
 
-## 데이터 경계
+- 연구 자료: Inbox → 불변 Raw → Article → 필요한 경우만 Wiki 반영 → 다음 작업에서 검색·재사용
+- 운영 기록: 근거 → 결정 → 반복 가능한 절차 → SOP. 모든 기록에 Article을 만들지 않음
+- Control Tower는 실제 작업·검토·결과를 보여주는 화면부터 연결
+- Company Profile은 회사별 전략·GEO/AEO 적용 전에 필요하며, 범용 자료 처리의 선행 조건은 아님
 
-- PostgreSQL 예정: 리드, 주문, 캠페인, 작업, 승인, 실행 이력, KPI
-- `vault/`: 회사 전략, 개념, SOP, 결정, 회고
-- `E:/Project/wiki`: 개인 연구 원본과 개인 지식
-- 환경변수/Secret Manager: API 키와 OAuth 토큰
+## 유지하는 경계
 
-## 운영 원칙
+- Markdown Vault: 원본, 정리글, 재사용 지식, 회사 원칙·결정·SOP의 정본
+- PostgreSQL: 작업 상태, 실행, 승인, 이벤트, 측정과 재생성 가능한 검색 인덱스
+- 코드·config·docs: 제품 실행 규칙, 모델 역할 설정, 개발 설계와 진행 상태
+- 개인 KnowledgeOS는 별도 소유 영역. 명시적으로 선택한 자료만 회사로 반영
+- 외부 발송·비용 변경·삭제·배포와 기존 지식 변경은 해당 범위의 승인을 확인
+- 특정 업종·모델·SaaS는 공통 엔진 밖의 설정 또는 Adapter로 연결
 
-- `Observe → Analyze → Plan → Approve → Execute → Measure → Learn`
-- 외부 실행은 `DRAFT → PREVIEW → APPROVED → EXECUTED → VERIFIED`
-- Article을 우선하고, 여러 출처 연결·반복 재사용 때만 Wiki로 승격
-- 자동화는 Manual → AI Assist → Recorder → Decision Assist → Reversible Automation → Learning Loop 순으로 승격
-- 특정 모델, SaaS, 업종을 Platform Kernel에 직접 결합하지 않음
+Kernel → Business Pack → Industry Pack 방향은 유지하되, 필요해진 기능만 구현합니다. Obsidian·CLI·웹은 같은 지식 처리 서비스를 사용하도록 전환할 계획이며 아직 연결되지 않았습니다.
 
-상세 기준은 `docs/PRODUCT.md`, `docs/ARCHITECTURE.md`, 현재 상태는 `ACTIVE.md`를 확인합니다.
+현재 구현/검증 상태는 [ACTIVE](ACTIVE.md), 다음 완료 기준은 [Milestones](docs/MILESTONES.md)를 확인합니다.

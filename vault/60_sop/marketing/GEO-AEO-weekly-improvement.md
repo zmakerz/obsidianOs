@@ -2,12 +2,17 @@
 kind: sop
 domain: marketing
 status: draft
-updated: 2026-09-01
+created: 2026-09-01
+updated: 2026-09-02
 aliases:
   - GEO-AEO 주간 개선 SOP
+source_refs:
+  - "[[30_wiki/marketing/geo-aeo-operating-model|GEO-AEO 운영 모델]]"
 ---
 
 # GEO-AEO 주간 개선 SOP
+
+> 공개용 설계 예제입니다. 실제 회사 자료나 운영 성과가 아니며, 위 출처는 이 프로젝트의 설계·코드 참조입니다.
 
 ## 한 바퀴
 
@@ -43,4 +48,4 @@ Manual / AI Assist. 실제 발행 자동화는 아직 허용하지 않습니다.
 
 ## Related
 
-- [[GEO-AEO 운영 모델]]
+- [[30_wiki/marketing/geo-aeo-operating-model|GEO-AEO 운영 모델]]

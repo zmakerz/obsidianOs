@@ -1,7 +1,10 @@
 ---
 kind: company-profile
 status: draft
+created: 2026-09-01
 updated: 2026-09-01
+aliases:
+  - 회사 프로필
 ---
 
 # Company Profile

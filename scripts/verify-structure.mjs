@@ -10,8 +10,16 @@ const required = [
   "packages/kernel/src/approval.ts",
   "packages/kernel/src/operating-loop.ts",
   "packages/knowledge/src/promotion.ts",
+  "packages/database/sql/001_control_tower.sql",
+  "packages/database/src/repository.ts",
   "packs/marketing/src/geo-aeo.ts",
+  "apps/control-tower/app/page.tsx",
+  "apps/control-tower/app/api/health/route.ts",
   "vault/README.md",
+  "vault/00_system/OPERATING_RULES.md",
+  "vault/40_navigation/HOME.md",
+  "scripts/vault-lint.mjs",
+  "scripts/propose-knowledge-promotion.mjs",
 ];
 
 for (const path of required) await access(resolve(root, path));

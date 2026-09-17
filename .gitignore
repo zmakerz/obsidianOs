@@ -7,3 +7,24 @@ coverage/
 !.env.example
 *.log
 vault/.obsidian/workspace*.json
+vault/.obsidian/plugins/**/data.json
+vault/.trash/
+
+# Generated and private local experiments
+next-env.d.ts
+*.tsbuildinfo
+.next-profiles/
+local-vault/
+vault/.obsidian/
+vault/10_inbox/*
+!vault/10_inbox/README.md
+vault/20_raw/*
+!vault/20_raw/README.md
+vault/80_outputs/*
+!vault/80_outputs/README.md
+vault/90_logs/*
+!vault/90_logs/README.md
+
+# Local review notes and filesystem-recovery copies are never public
+/docs/DESIGN_REVIEW.md
+*.unreadable-*

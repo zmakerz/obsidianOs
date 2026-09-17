@@ -1,32 +1,41 @@
 # Active
 
-updated_at: 2026-09-01
-milestone: M1 Platform Foundation
-status: verified
+updated_at: 2026-09-17
+milestone: M2.0 Baseline repair
+status: public-baseline-verified
 
-## 현재 기준선
+## Scope
 
-- 별도 Business OS 저장소
-- 승인·운영 루프 Kernel
-- Article 우선·선택적 Wiki 승격 정책
-- 회사 전용 Obsidian Vault
-- 첫 Business Pack인 GEO/AEO Marketing Pack
-- 구조 검사와 단위 테스트
+Public early-development baseline: source code, MIT license, documentation, synthetic demo data and blank Vault templates only.
+No private conversations, company decision history or local review reports are included.
 
-## 다음 작업
+## Implemented
 
-1. M2 Control Tower UI와 PostgreSQL 저장소 포트 구현
-2. 첫 실제 데이터 입력 경로 한 개 연결
-3. Company Profile과 첫 KPI 확정
+- Kernel approval/loop state models and knowledge promotion policy.
+- Next.js Control Tower demo and initial PostgreSQL schema/repository.
+- Runnable in-memory loop example; no external execution or API keys.
+- Explicit-path sample Vault links and portable proposal CLI.
+- CLI input/path-boundary regression tests, local-only web binding, CI.
 
-## 사용자 결정이 필요한 값
+## Not implemented / not validated
 
-- 실제 첫 회사/사업의 이름과 한 줄 설명
-- Control Tower 첫 화면 KPI 3~5개
-- 첫 연동: CSV, Google Sheets, CRM, 광고 플랫폼 중 하나
+- Raw/Article processing service, real AI generation, persistent Worker and Obsidian processing commands.
+- Authentication, multi-company isolation, approval payload/revision binding.
+- Live PostgreSQL migrations, restart/concurrency/rollback integration tests.
+- Strict YAML/kind/heading/link-reachability validation.
+- Native Obsidian UI end-to-end verification.
 
-## 경계
+## Local verification — 2026-09-17
 
-- `E:/Project/wiki` 자료를 자동 이동·복사·삭제하지 않음
-- 비밀키를 샘플에 넣지 않음
-- 외부 실행은 Approval Gate 구현 전 연결하지 않음
+- Frozen-lockfile installation, 19 tests (zero skipped), demo, typecheck and production build passed.
+- Structure check: 17 required paths. Current Vault lint: 21 Markdown files, 22 links.
+- Current publication snapshot: no private conversation identifiers, personal machine paths or high-confidence credential patterns found.
+- This is not a complete security audit. GitHub CI is verified separately after publication.
+
+## Next — M2.0
+
+Finish strict Vault validation with negative fixtures, HOME reachability and native Obsidian checks.
+Use temporary Vaults only; never modify private source data in tests.
+Then follow [Milestones](docs/MILESTONES.md) for M2.1 common processing service, M2.2 Obsidian/web/Wiki, M3 first operational loop and M4 B2B readiness.
+
+Company-specific goals are required before company strategy, not before generic data processing.

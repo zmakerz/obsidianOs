@@ -2,10 +2,17 @@
 kind: wiki
 domain: marketing
 status: active
-updated: 2026-09-01
+created: 2026-09-01
+updated: 2026-09-02
+aliases:
+  - GEO-AEO 운영 모델
+source_refs:
+  - "https://github.com/zmakerz/obsidianOs/blob/main/packs/marketing/src/geo-aeo.ts"
 ---
 
 # GEO/AEO 운영 모델
+
+> 공개용 설계 예제입니다. 실제 회사 자료나 운영 성과가 아니며, 위 출처는 이 프로젝트의 설계·코드 참조입니다.
 
 ## Capsule
 
@@ -27,5 +34,6 @@ GEO/AEO는 AI가 답을 만들 때 브랜드 콘텐츠와 평판을 이해하고
 
 ## Relationships
 
-- [[GEO-AEO 주간 개선 SOP]]
+- [[60_sop/marketing/GEO-AEO-weekly-improvement|GEO-AEO 주간 개선 SOP]]
+- [[30_wiki/operations/loop-engineering|Loop Engineering]]
 - Marketing Pack 코드: `packs/marketing/src/geo-aeo.ts`

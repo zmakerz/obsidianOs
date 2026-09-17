@@ -1,0 +1,26 @@
+{
+  "name": "@business-os/control-tower",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1",
+    "typecheck": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "@business-os/database": "workspace:*",
+    "@business-os/kernel": "workspace:*",
+    "@business-os/marketing-pack": "workspace:*",
+    "next": "16.3.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.0",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "typescript": "7.0.2"
+  },
+  "license": "MIT"
+}
