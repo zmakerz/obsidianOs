@@ -20,11 +20,15 @@
 
 ## 현재 상태와 처음 열기
 
-2026-09-17 기준: 폴더·템플릿과 수동 승격 제안서가 있습니다. 자동 Raw/Article 처리와 Wiki 반영 명령은 아직 연결되지 않았습니다. HOME 링크는 실제 파일 경로를 사용합니다. 엄격한 YAML·헤딩·도달성 검사는 M2.0의 후속 작업입니다.
+2026-09-17 기준: 폴더·템플릿과 수동 승격 제안서가 있습니다. 자동 Raw/Article 처리와 Wiki 반영 명령은 아직 연결되지 않았습니다. HOME 링크는 실제 파일 경로를 사용합니다. YAML·Wikilink·HOME 도달성 검사가 구현되어 있습니다. 실제 화면의 링크 열기는 별도로 확인합니다.
 
-1. Obsidian에서 복제한 저장소의 vault 폴더를 Vault로 엽니다.
+1. Obsidian에서 복제한 저장소 **안의 vault 폴더만** Vault로 엽니다. apps, packages, node_modules가 최상위에 보이면 개발 루트를 잘못 연 것입니다.
 2. Core plugin Templates를 켜고 폴더를 00_system/templates로 지정합니다.
 3. 파일 탐색기에서 40_navigation/HOME.md를 열어 Bookmark에 추가합니다.
+
+저장소 내부의 vault 폴더명을 유지합니다. Obsidian에서 보관함 이름을 바꾸면 실제 폴더명도 바뀌어 기본 경로를 쓰는 명령이 실패할 수 있습니다.
+
+HOME의 회사 프로필·Business OS 운영 모델·회사 지식 승격 SOP를 눌러 기존 본문이 열리는지 확인합니다. 빈 문서가 새로 생성되면 링크 또는 열린 보관함 경계를 다시 확인합니다.
 
 QuickAdd/Templater는 선택 사항입니다. 개인 Vault에서 작동하는 명령이 이 회사 Vault에도 설치되었다고 가정하지 않습니다. 플러그인 API 키나 plugins/**/data.json은 Git에 저장하지 않습니다.
 
@@ -34,10 +38,10 @@ QuickAdd/Templater는 선택 사항입니다. 개인 Vault에서 작동하는 �
 
 주제는 general에서 시작해 필요한 domain을 추가합니다. YouTube는 주제가 아니라 source_type입니다. Article은 원문을 살린 정보 전달 글, Wiki는 반복 사용하는 개념과 관계입니다. 상세 내용을 두 문서에 반복 복제하지 않습니다.
 
-현재 개인 자료 검토용 명령은 제안서만 만듭니다. 실제 파일 경로를 사용합니다.
+현재 개인 자료 검토용 명령은 제안서만 만듭니다. 아래 명령은 Vault가 아닌 개발 저장소 루트에서 실행하며, 경로는 자신의 실제 절대 경로로 바꿉니다. 실제 회사 자료에는 --vault로 비공개 회사 Vault를 지정합니다.
 
 ```powershell
-node scripts/propose-knowledge-promotion.mjs --source-root "/absolute/personal-vault" --source "/absolute/personal-vault/source.md" --title "회사에서 사용할 지식" --domain general --kind article
+node scripts/propose-knowledge-promotion.mjs --vault "/absolute/company-vault" --source-root "/absolute/personal-vault" --source "/absolute/personal-vault/source.md" --title "회사에서 사용할 지식" --domain general --kind article
 ```
 
 승격 제안은 10_inbox에 생성되며 승인 전 원문과 대상 문서를 수정하지 않습니다. 이것은 AI 처리/반영 자동화가 아닙니다. 향후 공통 서비스의 변경 preview와 승인 경로로 연결하며 실제 적용 전 운영 규칙·템플릿도 함께 갱신합니다.

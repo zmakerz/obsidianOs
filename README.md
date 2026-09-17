@@ -23,6 +23,15 @@ Corepack이 없는 환경에서는 pnpm 11.19.0을 설치한 뒤 명령의 corep
 
 웹은 http://127.0.0.1:3000 에서 열립니다. dev/start는 로컬 loopback에 바인딩합니다. Demo KPI·추천·활동은 합성 자료이고 승인 버튼은 비활성화됩니다.
 
+## 새 컴퓨터에서 이어가기
+
+위 빠른 시작 명령으로 복제·설치·검증합니다. 이미 복제한 저장소가 있고 로컬 변경이 없다면 `git pull --ff-only`로 갱신합니다.
+
+- 개발 도구에서는 저장소 루트를 열고 AGENTS.md → PROJECT.md → ACTIVE.md 순서로 현재 상태를 확인합니다. M2.0은 완료했으며 다음 구현은 M2.1의 자료 → Raw → Article 공통 처리 기능입니다.
+- Obsidian에서는 저장소 안의 vault 폴더만 열고 40_navigation/HOME.md에서 시작합니다.
+- GitHub에는 공개 코드·샘플만 있습니다. API 키(.env 파일), 개인/회사 실제 자료, Obsidian 설정·플러그인, 의존성 설치본과 DB 데이터는 함께 내려오지 않습니다. 필요한 항목은 별도로 설정하거나 안전하게 옮깁니다.
+- 현재 Demo·테스트에는 키가 필요하지 않습니다. 실제 AI 처리와 환경변수 로딩은 후속 구현 대상이므로 키 파일만 만든 상태를 AI 연결 완료로 보지 않습니다.
+
 ## 실행 가능한 최소 예제
 
 ```sh
@@ -45,7 +54,7 @@ corepack pnpm typecheck
 corepack pnpm build
 ```
 
-CI는 같은 명령과 demo를 실행합니다. 기존 테스트는 Kernel/승격 정책/DB repository를 검증하며 DB 테스트는 FakeDatabase를 사용합니다. 실제 PostgreSQL·AI·Obsidian end-to-end는 별도 완료 조건입니다. CLI 입력·경로 경계의 회귀 테스트를 포함합니다. 엄격한 YAML·헤딩·HOME 도달성 lint는 M2.0의 후속 작업입니다.
+CI는 같은 명령과 demo를 실행합니다. 기존 테스트는 Kernel/승격 정책/DB repository를 검증하며 DB 테스트는 FakeDatabase를 사용합니다. 실제 PostgreSQL·AI·Obsidian end-to-end는 별도 완료 조건입니다. CLI 입력·경로 경계의 회귀 테스트를 포함합니다. YAML/kind별 속성·중복 ID·Wikilink 목적지/헤딩/첨부·HOME 도달성을 읽기 전용으로 검사합니다. 일반 Markdown 링크와 외부 URL의 유효성은 이 검사 범위가 아닙니다.
 
 ## 코드 구성
 
@@ -61,7 +70,20 @@ CI는 같은 명령과 demo를 실행합니다. 기존 테스트는 Kernel/승�
 
 ## Obsidian과 회사 지식
 
-복제한 저장소의 vault 폴더를 열고 40_navigation/HOME.md에서 시작합니다. Core Templates 폴더는 00_system/templates입니다. HOME 링크는 실제 파일 경로와 표시명을 구분합니다.
+Obsidian에서는 개발 저장소 전체가 아니라 **그 안의 vault 폴더만** 열고 40_navigation/HOME.md에서 시작합니다. 왼쪽 최상위에 00_system, 10_inbox, 30_wiki 등이 보이면 맞습니다. apps나 node_modules가 보이면 개발 루트를 연 것입니다.
+
+개발 폴더 이름은 바꿔도 되지만 저장소 내부의 vault 이름은 유지합니다. Obsidian에서 보관함 이름을 바꾸면 실제 폴더명도 바뀌므로, 이름만 꾸미려고 변경하지 마세요. 자세한 동작은 [Obsidian 보관함 관리](https://obsidian.md/help/manage-vaults)를 참고하세요.
+
+Core Templates 폴더는 00_system/templates입니다. HOME 링크는 실제 파일 경로와 표시명을 구분합니다.
+
+읽기 전용 구조 검사(저장소 루트에서 실행):
+
+```sh
+corepack pnpm check:vault
+node scripts/vault-lint.mjs --vault "/absolute/company-vault"
+```
+
+검사는 내용을 수정하지 않으며 Article에 Wiki나 Map 생성을 강제하지 않습니다. 현재 규칙과 검사 범위는 [Vault 운영 규칙](vault/00_system/OPERATING_RULES.md)을 따릅니다.
 
 개인 자료의 회사 사용을 검토하는 기존 명령은 수동 제안서만 생성합니다. 경로는 본인의 개인 Vault 자료로 바꿉니다. --source-root로 읽기 허용 경계를, --vault로 제안서를 기록할 비공개 회사 Vault를 명시합니다. 대상 Vault에는 10_inbox 폴더가 있어야 합니다. PowerShell에서는 C:/... 같은 절대 경로를 사용합니다.
 

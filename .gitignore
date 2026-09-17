@@ -28,3 +28,6 @@ vault/90_logs/*
 # Local review notes and filesystem-recovery copies are never public
 /docs/DESIGN_REVIEW.md
 *.unreadable-*
+
+# Settings created by accidentally opening the repository root as a Vault
+/.obsidian/

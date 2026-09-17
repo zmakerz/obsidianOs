@@ -2,7 +2,7 @@
 kind: system-rule
 status: active
 created: 2026-09-01
-updated: 2026-09-02
+updated: 2026-09-17
 ---
 
 # Company Vault 운영 규칙
@@ -35,7 +35,11 @@ source_refs:
 ```
 
 - 필수: `kind`, `status`, `created`, `updated`
-- Wiki·SOP·Output 필수: `domain`, `source_refs`
+- kind는 wiki, sop, article 같은 영문 소문자 식별자입니다. 새로운 kind도 공통 속성을 갖추면 허용합니다.
+- Wiki·SOP·Article·Output 필수: `domain`, 비어 있지 않은 문자열 목록 `source_refs`
+- capture-request 필수: `domain`; promotion-request 필수: `domain`, `source_refs`, `proposed_kind`(article/wiki/sop)
+- 날짜는 실제 존재하는 YYYY-MM-DD 형식입니다. id는 선택 사항이지만 작성하면 공백 없이 고유한 문자열을 사용합니다.
+- aliases는 문자열 목록이며 파일 경로를 대신하지 않습니다. 템플릿의 빈 값·자리표시자는 허용하되 YAML 문법 오류는 검사합니다.
 - `status`: `pending`, `draft`, `active`, `deprecated`, `archived`
 - 원본에서 만든 문서는 `source_refs`에 출처를 한 번만 기록합니다. 문단마다 출처 ID를 반복하지 않습니다.
 
@@ -60,7 +64,9 @@ source_refs:
 ## 링크와 탐색
 
 - 사람의 시작점은 `40_navigation/HOME.md`입니다.
-- 새 Wiki·SOP는 HOME 또는 관련 Map에서 한 번 이상 찾을 수 있어야 합니다.
+- 사용 중인 Wiki·SOP는 HOME에서 실제 링크를 따라 찾아갈 수 있어야 합니다. 자기 링크나 고립된 문서끼리의 순환 링크만으로는 충족되지 않습니다.
+- Article·Output과 archived/deprecated 문서에 HOME 연결을 강제하지 않습니다.
+- 링크는 `[[30_wiki/operations/loop-engineering|Loop Engineering]]`처럼 실제 경로와 표시명을 구분합니다. 이름이 같은 파일이 둘 이상이면 전체 경로를 사용합니다.
 - 문서 관계는 본문 끝 `Related`에 Wiki Link로 연결합니다.
 - 링크 수를 늘리는 것보다 실제 재사용 관계를 명확히 하는 것을 우선합니다.
 
@@ -73,3 +79,14 @@ source_refs:
 ## 템플릿
 
 `00_system/templates`에는 Capture, Knowledge, SOP, Daily Log 네 가지만 유지합니다. Obsidian의 Templates 폴더를 이 경로로 지정합니다.
+
+## 읽기 전용 구조 검사
+
+저장소 루트에서 `pnpm check:vault`, 별도 Vault는 `node scripts/vault-lint.mjs --vault "/absolute/vault"`로 검사합니다.
+
+- 본문과 source_refs의 Wikilink/임베드, 파일·헤딩·블록·첨부 존재와 HOME 도달성을 검사합니다.
+- 일반 Markdown 링크, 외부 URL의 접속 여부, PDF의 실제 페이지 수, Obsidian 플러그인 동작은 검사하지 않습니다.
+- 코드 블록·인라인 코드·주석의 예제 링크는 제외합니다. .obsidian/.git/.trash/node_modules를 읽지 않고 심볼릭 링크·Vault 밖의 경로는 거부합니다.
+- 파일 읽기 실패를 성공으로 숨기지 않습니다. 일부 인증 토큰 패턴도 확인하지만 완전한 보안 감사는 아닙니다.
+- 문서를 수정하지 않으며 원문의 주장·문체·내용을 판정하거나 자동 축약하지 않습니다.
+- 키 중복, 과도한 YAML 별칭 확장, 64 KiB를 넘는 frontmatter는 오류입니다. 본문 분량 제한은 아닙니다.

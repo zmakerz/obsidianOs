@@ -23,5 +23,8 @@
     "db:seed": "node --env-file-if-exists=apps/control-tower/.env.local packages/database/src/seed.ts",
     "test:scripts": "node --test scripts/test/*.test.mjs"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "yaml": "2.9.1"
+  }
 }
