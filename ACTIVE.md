@@ -10,7 +10,7 @@ status: in-progress
 - 데스크톱 설계 대화를 초기 KnowledgeOS부터 GitHub/API 설정 인계까지 확인했습니다. 지속할 결정과 이유는 [PRODUCT](docs/PRODUCT.md#설계-이력과-확정-기준)에 반영했습니다. 과거 대화·임시 파일·stash를 다시 읽어야만 개발할 수 있는 상태로 두지 않습니다.
 - 기본 방향은 충실한 Raw + 대표 Article, 선택적 Wiki, 날짜별 통합 로그, 필요한 맥락만 읽기입니다. 개인 지식과 회사 Vault를 합치지 않습니다.
 - 기본 `README.md`는 영어, `README.ko.md`는 한국어이며 상단에서 언어를 선택합니다. 현재 기능·실행 방법·로드맵을 정리했고 글 생성 정책은 한국어를 유지합니다.
-- 직전 코드/문서는 `b8a0185`까지 origin/main에 push 완료했습니다. 이번 변경은 웹/Vault 연결·README 캡처·DB 기반과 지속 작업 기록을 포함하며 사용자 요청에 따라 함께 커밋·푸시할 예정입니다. 최종 공유 여부는 Git HEAD와 origin/main을 확인합니다. 비밀키와 비공개 실험 자료는 계속 Git 제외 상태입니다.
+- 기능 커밋 `b90c157`(웹/Vault 연결·README 캡처·DB 기반·지속 작업 기록)을 `origin/main`에 push 완료했습니다. 이 기록은 확인 결과를 남기는 후속 문서 변경입니다. 새 기기에서는 최신 main을 받아 Git HEAD/origin/main을 확인합니다. 비밀키와 비공개 실험 자료는 계속 Git 제외 상태입니다.
 - 사용자가 설치 후 설정·자료 관리를 웹에서 쉽게 수행하고 Obsidian과 연결하는 방향을 제안했습니다. [PRODUCT](docs/PRODUCT.md#웹-중심의-첫-사용과-일상-흐름)에 최초 설정과 화면별 동작, [ARCHITECTURE](docs/ARCHITECTURE.md#웹과-obsidian의-연결-방식)에 같은 Vault를 사용하는 로컬 서비스 경계를 반영했습니다. 새 컴퓨터/에이전트 인계 안내는 양쪽 README에서 CONTRIBUTING으로 옮겼습니다.
 - 웹 `/`를 실제 로컬 Vault에 연결했습니다. 설정에서 기존 절대 경로/읽을 폴더/원문 저장 허용을 선택하거나 별도 합성 테스트 Vault를 만들 수 있습니다. 파일·붙여넣기 → 공통 `captureSource` → `20_raw/document` 영속 저장, 목록·본문 읽기·수동 갱신·Obsidian URI를 제공합니다. 연결 전만 탭 미리보기이고 제목/태그 편집·목록 제외/되돌리기는 임시 자료에만 적용합니다. AI/Article/DB 작업은 자동 생성하지 않습니다. 운영 Demo는 `/operations`에 보존했습니다.
 - 영어/한국어 README에 실제 자료실·읽기 화면(`docs/images/web-library.jpg`, `web-reader.jpg`)과 키/DB 없는 테스트 절차를 추가했습니다. 캡처는 합성 자료만 사용합니다.
@@ -63,7 +63,9 @@ status: in-progress
 - 기본 자동 테스트 **98개(39+59)**와 실제 PostgreSQL **24개 시나리오(Node 결과는 부모 2개 포함 26개)** 통과. DB의 기존 003 이력에서 004로 업그레이드할 때 workspace/승인이 보존되는 것도 확인했습니다.
 - 새 검증: 동시 요청/claim 1회, workspace FK와 조회/목록/취소 경계, stale attempt 거부, 완료 이벤트 실패 시 transaction rollback, 입력/정책/Vault 구분, 중복 생성 방지, 고정 재시도 상한과 재시도 성공/Raw 재사용, 대기/실행 취소, needs-input, 모의 API 성공·부분 실패·거부·잘못된 응답의 알려진/불명 사용량, DB 기록 실패 시 호출 중단, 서로 다른 CLI 프로세스의 동일 작업·이력 조회.
 - `pnpm typecheck`, `pnpm build`, `pnpm demo` 통과. 모델은 테스트 응답으로 주입했으며 실제 API 호출/비용은 추가하지 않았습니다. 앞선 DB 서버 재시작 검증과 이번 CLI 프로세스 재시작 검증을 구분합니다. 강제 종료 자동 복구는 아직 테스트 합격 대상으로 구현하지 않았습니다.
-- README 영어/한국어에 선택적 DB 처리·조회·취소·재시도 사용법과 한계를 추가했습니다. 앞선 웹/Obsidian 합성 캡처 3장의 공개 범위도 다시 확인했습니다. 원격 CI는 push 이후 별도 확인합니다.
+- README 영어/한국어에 선택적 DB 처리·조회·취소·재시도 사용법과 한계를 추가했습니다. 앞선 웹/Obsidian 합성 캡처 3장의 공개 범위도 다시 확인했습니다. 스테이징한 47개 파일에서 키·비공개 로컬 자료가 없는지 확인한 뒤 커밋했습니다.
+
+- **원격 검증:** 기능 커밋 `b90c157`의 [GitHub CI](https://github.com/zmakerz/obsidianOs/actions/runs/35237193982)가 성공했습니다. Ubuntu + Node 24 + PostgreSQL 18에서 frozen install·기본/DB 통합 테스트·demo·typecheck·build가 통과했습니다. 검증용 로컬 PostgreSQL은 종료했고 자동 서비스로 등록하지 않았습니다.
 
 ## 알려진 한계
 
