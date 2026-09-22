@@ -10,7 +10,7 @@ status: in-progress
 - 데스크톱 설계 대화를 초기 KnowledgeOS부터 GitHub/API 설정 인계까지 확인했습니다. 지속할 결정과 이유는 [PRODUCT](docs/PRODUCT.md#설계-이력과-확정-기준)에 반영했습니다. 과거 대화·임시 파일·stash를 다시 읽어야만 개발할 수 있는 상태로 두지 않습니다.
 - 기본 방향은 충실한 Raw + 대표 Article, 선택적 Wiki, 날짜별 통합 로그, 필요한 맥락만 읽기입니다. 개인 지식과 회사 Vault를 합치지 않습니다.
 - 기본 `README.md`는 영어, `README.ko.md`는 한국어이며 상단에서 언어를 선택합니다. 현재 기능·실행 방법·로드맵을 정리했고 글 생성 정책은 한국어를 유지합니다.
-- 기능 커밋 `b90c157`(웹/Vault 연결·README 캡처·DB 기반·지속 작업 기록)을 `origin/main`에 push 완료했습니다. 이 기록은 확인 결과를 남기는 후속 문서 변경입니다. 새 기기에서는 최신 main을 받아 Git HEAD/origin/main을 확인합니다. 비밀키와 비공개 실험 자료는 계속 Git 제외 상태입니다.
+- 웹/Vault 연결·DB 작업 기록은 `b90c157`, 중단 복구 기능은 `eb13a15`로 `origin/main`에 push 완료했습니다. 이 기록은 복구 기능의 원격 검증 결과를 남기는 후속 문서 변경입니다. 새 기기에서는 최신 main을 받아 Git HEAD/origin/main을 확인합니다. 비밀키와 비공개 실험 자료는 계속 Git 제외 상태입니다.
 - 사용자가 설치 후 설정·자료 관리를 웹에서 쉽게 수행하고 Obsidian과 연결하는 방향을 제안했습니다. [PRODUCT](docs/PRODUCT.md#웹-중심의-첫-사용과-일상-흐름)에 최초 설정과 화면별 동작, [ARCHITECTURE](docs/ARCHITECTURE.md#웹과-obsidian의-연결-방식)에 같은 Vault를 사용하는 로컬 서비스 경계를 반영했습니다. 새 컴퓨터/에이전트 인계 안내는 양쪽 README에서 CONTRIBUTING으로 옮겼습니다.
 - 웹 `/`를 실제 로컬 Vault에 연결했습니다. 설정에서 기존 절대 경로/읽을 폴더/원문 저장 허용을 선택하거나 별도 합성 테스트 Vault를 만들 수 있습니다. 파일·붙여넣기 → 공통 `captureSource` → `20_raw/document` 영속 저장, 목록·본문 읽기·수동 갱신·Obsidian URI를 제공합니다. 연결 전만 탭 미리보기이고 제목/태그 편집·목록 제외/되돌리기는 임시 자료에만 적용합니다. AI/Article/DB 작업은 자동 생성하지 않습니다. 운영 Demo는 `/operations`에 보존했습니다.
 - 영어/한국어 README에 실제 자료실·읽기 화면(`docs/images/web-library.jpg`, `web-reader.jpg`)과 키/DB 없는 테스트 절차를 추가했습니다. 캡처는 합성 자료만 사용합니다.
@@ -74,7 +74,7 @@ status: in-progress
 - 검증된 생성 구간과 완성 초안은 재사용하고, Raw/Article 게시 전 hash intent와 일일 로그의 이전/추가 바이트로 중단 지점을 대조합니다. 기존 파일 수정은 보존하며 결과나 과금이 불명인 호출은 재호출하지 않고 needs-review로 남깁니다. 성공 시 임시 생성 본문과 로그 before-image는 DB에서 제거하고 문서 hash·사용량·시도 이력을 유지합니다. 재개를 위해 같은 입력/옵션을 다시 제공해야 합니다.
 - 이 기기의 새 격리 PostgreSQL 18.6 cluster에서 **48개 시나리오(Node 부모 테스트 3개 포함 51개) 통과**했습니다. 기존 24개에 복구 시나리오 24개를 추가했습니다. 실제 자식 프로세스를 SIGKILL하고 폐기용 DB에서만 lease 만료를 재현했습니다. 원문/호출/구간/초안/Article/로그/완료 기록 전후, 부분 로그, 중복 재개, 수정본 보존, DB 세션 연결 손실 후 살아 있는 파일 소유자 보호, 이전 시도의 쓰기 거부와 공개 CLI --resume을 검증했습니다. 테스트용 DB 외 backend를 종료하지 않도록 대상 DB 범위를 제한합니다.
 - 기본 테스트 **98개(39+59)**, TypeScript 검사·production build·demo 통과. 모델 응답은 테스트에서 주입했고 **실제 API 호출·추가 비용은 없습니다**. `.env.local`·개인 Vault·기존 운영 DB를 변경하지 않았습니다. 검증 후 이번 임시 PostgreSQL 서버는 종료했습니다. 9월 17일의 실제 API·Obsidian 왕복·DB 서버 재시작 검증은 과거 증거이며 이번에 다시 수행한 것으로 표시하지 않습니다.
-- 영문/한글 README, PRODUCT, ARCHITECTURE, MILESTONES와 CONTRIBUTING에 명시적 재개 사용법·한계·임시 본문 보관을 반영했습니다. M2.1 전체 완료는 아니며 다음은 입력 계약과 자료별 품질 검증입니다. 이번 변경의 원격 공유/CI 결과는 확인 후 기록합니다.
+- 영문/한글 README, PRODUCT, ARCHITECTURE, MILESTONES와 CONTRIBUTING에 명시적 재개 사용법·한계·임시 본문 보관을 반영했습니다. M2.1 전체 완료는 아니며 다음은 입력 계약과 자료별 품질 검증입니다. 기능 커밋 `eb13a15`를 origin/main에 push했고 [GitHub CI](https://github.com/zmakerz/obsidianOs/actions/runs/35720262360)가 성공했습니다. Ubuntu + Node 24 + PostgreSQL 18에서 frozen install·기본/DB 통합 테스트·demo·typecheck·build가 통과했습니다. 후속 문서 커밋은 이 결과를 기록합니다.
 
 ## 알려진 한계
 
