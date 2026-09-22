@@ -1,5 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
+import { hostname } from 'node:os';
+import type { RecoveryJournal } from './recovery-types.ts';
 import { link, lstat, mkdir, open, readdir, realpath, unlink } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { parseDocument, stringify } from 'yaml';
@@ -26,7 +28,9 @@ export function parseNote(content: string, path: string): Note {
 /** Local single-writer adapter. Never overwrites a document or removes an Inbox file. */
 export class MarkdownVault {
   readonly root: string;
-  private constructor(root: string) { this.root = root; }
+  private readonly recovery?: RecoveryJournal;
+  private constructor(root: string, recovery?: RecoveryJournal) { this.root = root; this.recovery = recovery; }
+  withRecovery(recovery: RecoveryJournal): MarkdownVault { return new MarkdownVault(this.root, recovery); }
   static async connect(path: string): Promise<MarkdownVault> {
     const root = await realpath(path);
     if (!(await lstat(root)).isDirectory()) throw new KnowledgeError('vault-not-directory');
@@ -51,12 +55,13 @@ export class MarkdownVault {
     }
     return target;
   }
-  async read(path: string): Promise<string> {
+  async read(path: string): Promise<string> { return (await this.readBytes(path)).toString('utf8'); }
+  private async readBytes(path: string): Promise<Buffer> {
     const target = await this.safePath(path);
     const handle = await open(target, constants.O_RDONLY | constants.O_NOFOLLOW);
     try {
       if (!(await handle.stat()).isFile()) throw new KnowledgeError('not-a-file');
-      return await handle.readFile('utf8');
+      return await handle.readFile();
     } finally { await handle.close(); }
   }
   private async metadata(path: string): Promise<Record<string, unknown> | null> {
@@ -104,31 +109,76 @@ export class MarkdownVault {
     return found[0] ?? null;
   }
   async create(path: string, content: string): Promise<void> {
+    if (this.recovery) {
+      await this.recovery.save('file:' + path, { path, hash: digest(content) });
+      await this.recovery.guard();
+      await this.recovery.boundary?.('file:before:' + path.split('/')[0]);
+    }
+    try { await this.publish(path, content); }
+    catch (error) {
+      if (!this.recovery || (error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      if (await this.read(path) !== content) throw new KnowledgeError('recovery-file-conflict');
+    }
+    if (this.recovery) {
+      await this.recovery.boundary?.('file:after:' + path.split('/')[0]);
+      await this.recovery.save('published:' + path, { hash: digest(content) });
+    }
+  }
+  private async publish(path: string, content: string): Promise<void> {
     const target = await this.safePath(path, true);
-    // A hard link publishes a fully written inode without replacing an existing target.
     const temporary = target + '.' + randomUUID() + '.tmp';
     const handle = await open(temporary, 'wx', 0o600);
     try {
-      try {
-        await handle.writeFile(content, 'utf8');
-        await handle.sync();
-      } finally { await handle.close(); }
+      try { await handle.writeFile(content, 'utf8'); await handle.sync(); }
+      finally { await handle.close(); }
       await this.safePath(path);
       await link(temporary, target);
     } finally { await unlink(temporary); }
   }
+  private async reconcile(): Promise<void> {
+    if (!this.recovery) return;
+    for (const key of await this.recovery.keys('file:')) {
+      const intent = await this.recovery.load<{ path: string; hash: string }>(key);
+      if (!intent) throw new KnowledgeError('recovery-intent-missing');
+      try {
+        if (digest(await this.read(intent.path)) !== intent.hash) throw new KnowledgeError('recovery-file-conflict');
+      } catch (error) {
+        if (!missing(error)) throw error;
+        if (await this.recovery.load('published:' + intent.path)) throw new KnowledgeError('recovery-published-file-missing');
+      }
+    }
+  }
   async exclusive<T>(work: () => Promise<T>): Promise<T> {
-    const path = await this.safePath('.business-os-write.lock');
-    let handle;
-    try { handle = await open(path, 'wx', 0o600); }
+    const path = '.business-os-write.lock';
+    const token = JSON.stringify({ pid: process.pid, host: hostname(), attemptId: this.recovery?.attemptId,
+      token: randomUUID(), startedAt: new Date().toISOString() });
+    if (this.recovery) {
+      await this.recovery.guard();
+      try {
+        const previousText = await this.read(path);
+        const previous = JSON.parse(previousText);
+        if (previous.host !== hostname() || !this.recovery.previousAttemptIds.includes(previous.attemptId)
+          || !Number.isSafeInteger(previous.pid) || previous.pid < 1) throw new KnowledgeError('recovery-lock-needs-review');
+        try { process.kill(previous.pid, 0); throw new KnowledgeError('recovery-owner-still-alive'); }
+        catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error; }
+        // Caller holds the same DB's per-Vault session lock; only this job's known dead owner is reclaimable.
+        await this.recovery.guard();
+        if (await this.read(path) !== previousText) throw new KnowledgeError('recovery-lock-changed');
+        await unlink(await this.safePath(path));
+      } catch (error) { if (!missing(error)) throw error; }
+    }
+    try { await this.publish(path, token); }
     catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new KnowledgeError('vault-busy-or-interrupted');
       throw error;
     }
     try {
-      await handle.writeFile(JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
+      await this.reconcile();
       return await work();
-    } finally { await handle.close(); await unlink(path); }
+    } finally {
+      if (await this.read(path) === token) await unlink(await this.safePath(path));
+      else throw new KnowledgeError('recovery-lock-changed');
+    }
   }
   async appendEvent(day: string, eventId: string, rawId: string, articleId: string): Promise<void> {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || Number.isNaN(Date.parse(day)) || new Date(day).toISOString().slice(0, 10) !== day
@@ -136,20 +186,44 @@ export class MarkdownVault {
       throw new KnowledgeError('invalid-log-event');
     }
     const path = '90_logs/' + day + '.md';
-    let current: string;
-    try { current = await this.read(path); }
-    catch (error) {
-      if (!missing(error)) throw error;
-      await this.create(path, renderNote({ kind: 'daily-log', status: 'active', created: day, updated: day }, '# ' + day + '\n'));
-      current = await this.read(path);
+    const entry = '\n<!-- event:' + eventId + ' -->\n- Article 저장: `' + articleId + '` · Raw: `' + rawId + '`\n';
+    const key = 'log:' + day + ':' + eventId;
+    let current: Buffer;
+    let exists = true;
+    try { current = await this.readBytes(path); }
+    catch (error) { if (!missing(error)) throw error; current = Buffer.alloc(0); exists = false; }
+    if (current.includes(Buffer.from(entry))) return;
+    let intent = await this.recovery?.load<{ before: string; append: string }>(key);
+    if (!intent) {
+      if (current.includes(Buffer.from('<!-- event:' + eventId))) throw new KnowledgeError('partial-log-needs-review');
+      const header = current.length ? '' : renderNote({ kind: 'daily-log', status: 'active', created: day, updated: day }, '# ' + day + '\n');
+      intent = { before: current.toString('base64'), append: Buffer.from(header + entry).toString('base64') };
+      await this.recovery?.save(key, intent);
     }
-    const marker = '<!-- event:' + eventId + ' -->';
-    if (current.includes(marker)) return;
-    const handle = await open(await this.safePath(path), constants.O_WRONLY | constants.O_APPEND | constants.O_NOFOLLOW);
-    try {
-      // This is a human-readable result summary, not the operational job-state store.
-      await handle.writeFile('\n' + marker + '\n- Article 저장: `' + articleId + '` · Raw: `' + rawId + '`\n');
-      await handle.sync();
-    } finally { await handle.close(); }
+    const before = Buffer.from(intent.before, 'base64'), append = Buffer.from(intent.append, 'base64');
+    const expected = Buffer.concat([before, append]);
+    if (current.length < before.length || current.length > expected.length || !expected.subarray(0, current.length).equals(current)) {
+      throw new KnowledgeError('recovery-log-conflict');
+    }
+    await this.recovery?.guard(true);
+    await this.recovery?.boundary?.('log:before');
+    if (!exists) {
+      await this.publish(path, expected.toString('utf8'));
+    } else {
+      const handle = await open(await this.safePath(path), constants.O_WRONLY | constants.O_APPEND | constants.O_NOFOLLOW);
+      try {
+        let offset = current.length;
+        while (offset < expected.length) {
+          await this.recovery?.guard(true);
+          const { bytesWritten } = await handle.write(expected.subarray(offset, offset + 64));
+          if (!bytesWritten) throw new KnowledgeError('log-write-stalled');
+          offset += bytesWritten;
+          await handle.sync();
+          await this.recovery?.boundary?.('log:chunk');
+        }
+      } finally { await handle.close(); }
+    }
+    await this.recovery?.boundary?.('log:after');
+    if (!(await this.readBytes(path)).equals(expected)) throw new KnowledgeError('recovery-log-conflict');
   }
 }

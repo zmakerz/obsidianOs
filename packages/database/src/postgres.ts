@@ -39,6 +39,25 @@ class PostgresDatabase implements TransactionalDatabase {
   }
 
   async close(): Promise<void> { await this.pool.end(); }
+
+  async sessionLock<T>(key: string, work: (signal: AbortSignal) => Promise<T>): Promise<T | null> {
+    const client = await this.pool.connect();
+    const controller = new AbortController();
+    let locked = false, discard = false;
+    const failed = () => { discard = true; controller.abort(); };
+    client.on('error', failed);
+    try {
+      locked = (await client.query('SELECT pg_try_advisory_lock(hashtextextended($1, 0)) AS acquired', [key])).rows[0].acquired;
+      return locked ? await work(controller.signal) : null;
+    } finally {
+      if (locked && !discard) {
+        try { await client.query('SELECT pg_advisory_unlock(hashtextextended($1, 0))', [key]); }
+        catch { discard = true; }
+      }
+      client.removeListener('error', failed);
+      client.release(discard);
+    }
+  }
 }
 
 export function createPostgresDatabase(connectionString: string): TransactionalDatabase {

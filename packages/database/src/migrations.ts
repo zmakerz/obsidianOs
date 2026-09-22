@@ -5,7 +5,7 @@ import type { TransactionalDatabase } from "./types.ts";
 export interface Migration { version: string; checksum: string; sql: string }
 
 // Explicit manifest: 002_demo_seed.sql is optional sample data, never a migration.
-const files = ["001_control_tower.sql", "003_workspace_learning.sql", "004_processing_jobs.sql"] as const;
+const files = ["001_control_tower.sql", "003_workspace_learning.sql", "004_processing_jobs.sql", "005_processing_recovery.sql"] as const;
 
 export async function loadMigrations(): Promise<Migration[]> {
   return Promise.all(files.map(async (version) => {

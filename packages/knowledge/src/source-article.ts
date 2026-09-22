@@ -107,7 +107,7 @@ export async function processSource(input: SourceInput, options: {
       created: day, updated: day, raw_id: rawId, request_hash: requestHash, content_hash: digest(body),
       source_refs: ['[[' + raw.path.replace(/\.md$/, '') + ']]'], generation_mode: draft.mode,
       generation_policy: fingerprint, model: draft.model ?? null, review: 'pending',
-      ...(draft.usage ? { generation_usage: draft.usage } : {}),
+      ...(draft.usage ? { generation_usage: { inputTokens: draft.usage.inputTokens, outputTokens: draft.usage.outputTokens, calls: draft.usage.calls } } : {}),
     }, body));
     const article = await vault.find('80_outputs/articles', articleId);
     if (!article) throw new KnowledgeError('article-write-not-found');

@@ -20,7 +20,7 @@ Business OS는 자료와 회사 지식을 실제 업무·승인·측정으로 �
 - 외부 발송·비용 변경·삭제·배포와 기존 지식 변경은 해당 범위의 승인을 확인
 - 특정 업종·모델·SaaS는 공통 엔진 밖의 설정 또는 Adapter로 연결
 
-Kernel → Business Pack → Industry Pack 방향은 유지하되, 필요해진 기능만 구현합니다. 현재 로컬 CLI가 공통 Raw/Article 서비스를 사용하고, 웹은 같은 서비스의 Raw 저장과 로컬 Vault 읽기에 연결돼 있습니다. 선택적 CLI 모드로 처리 작업·시도·이벤트·사용량을 PostgreSQL에 저장합니다. 웹 AI 처리·Obsidian 처리 명령·강제 종료 복구는 다음 구현 대상입니다.
+Kernel → Business Pack → Industry Pack 방향은 유지하되, 필요해진 기능만 구현합니다. 현재 로컬 CLI가 공통 Raw/Article 서비스를 사용하고, 웹은 같은 서비스의 Raw 저장과 로컬 Vault 읽기에 연결돼 있습니다. 선택적 CLI 모드로 처리 작업·시도·이벤트·사용량을 PostgreSQL에 저장합니다. 추적 CLI의 --resume은 확인된 로컬 중단을 저장 구간부터 이어 처리합니다. 다음은 입력 계약·실사용 품질 검증이며 웹 AI·Obsidian 처리 명령은 후속입니다.
 
 현재 구현/검증 상태는 [ACTIVE](ACTIVE.md), 다음 완료 기준은 [Milestones](docs/MILESTONES.md)를 확인합니다.
 

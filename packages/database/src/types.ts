@@ -24,6 +24,7 @@ export interface QueryExecutor {
   query<Row extends Record<string, unknown>>(text: string, values?: readonly unknown[]): Promise<QueryResult<Row>>;
 }
 export interface TransactionalDatabase extends QueryExecutor {
+  sessionLock?<T>(key: string, work: (signal: AbortSignal) => Promise<T>): Promise<T | null>;
   transaction<T>(operation: (executor: QueryExecutor) => Promise<T>): Promise<T>;
   close(): Promise<void>;
 }

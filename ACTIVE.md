@@ -1,6 +1,6 @@
 # Active
 
-updated_at: 2026-09-17
+updated_at: 2026-09-22
 milestone: M2.1 — 로컬 Capture/Raw/Article 이후 지속 작업 연결
 status: in-progress
 
@@ -14,9 +14,9 @@ status: in-progress
 - 사용자가 설치 후 설정·자료 관리를 웹에서 쉽게 수행하고 Obsidian과 연결하는 방향을 제안했습니다. [PRODUCT](docs/PRODUCT.md#웹-중심의-첫-사용과-일상-흐름)에 최초 설정과 화면별 동작, [ARCHITECTURE](docs/ARCHITECTURE.md#웹과-obsidian의-연결-방식)에 같은 Vault를 사용하는 로컬 서비스 경계를 반영했습니다. 새 컴퓨터/에이전트 인계 안내는 양쪽 README에서 CONTRIBUTING으로 옮겼습니다.
 - 웹 `/`를 실제 로컬 Vault에 연결했습니다. 설정에서 기존 절대 경로/읽을 폴더/원문 저장 허용을 선택하거나 별도 합성 테스트 Vault를 만들 수 있습니다. 파일·붙여넣기 → 공통 `captureSource` → `20_raw/document` 영속 저장, 목록·본문 읽기·수동 갱신·Obsidian URI를 제공합니다. 연결 전만 탭 미리보기이고 제목/태그 편집·목록 제외/되돌리기는 임시 자료에만 적용합니다. AI/Article/DB 작업은 자동 생성하지 않습니다. 운영 Demo는 `/operations`에 보존했습니다.
 - 영어/한국어 README에 실제 자료실·읽기 화면(`docs/images/web-library.jpg`, `web-reader.jpg`)과 키/DB 없는 테스트 절차를 추가했습니다. 캡처는 합성 자료만 사용합니다.
-- 현재 미리보기 서버: `http://127.0.0.1:3107`. 3000 포트는 다른 앱이 사용 중이어서 별도 포트에서 실행했습니다. 서버 종료 뒤에는 별도로 다시 시작해야 합니다.
+- 2026-09-17에 확인한 미리보기 주소: `http://127.0.0.1:3107`. 2026-09-22 작업에서는 실행 상태를 다시 확인하지 않았습니다. 3000 포트는 다른 앱이 사용 중이어서 별도 포트에서 실행했습니다. 서버 종료 뒤에는 별도로 다시 시작해야 합니다.
 
-- M2.1의 두 번째 단계로 `--track-job` 선택 모드를 연결했습니다. 요청/job·attempt·event·호출별 사용량을 PostgreSQL에 저장하고 CLI 목록/상세 조회·취소와 제한된 명시적 재시도를 제공합니다. 웹 AI와 자동 중단 복구까지 완료된 상태는 아닙니다.
+- M2.1의 두 번째 단계로 `--track-job` 선택 모드를 연결했습니다. 요청/job·attempt·event·호출별 사용량을 PostgreSQL에 저장하고 CLI 목록/상세 조회·취소와 제한된 명시적 재시도를 제공합니다. 2026-09-22에는 세 번째 단계인 명시적 로컬 중단 재개까지 연결했습니다. 웹 AI와 백그라운드 자동 복구는 후속입니다.
 
 ## 구현된 범위와 코드 진입점
 
@@ -35,6 +35,7 @@ status: in-progress
 | 연결/읽기/Raw/세션/재시작 회귀 검증 | [vault-web.test.mjs](scripts/test/vault-web.test.mjs) |
 | DB 버전·checksum·동시 migration / 웹 공유 pool | [migrations.ts](packages/database/src/migrations.ts), [postgres.ts](packages/database/src/postgres.ts), [dashboard.ts](apps/control-tower/lib/dashboard.ts) |
 | 처리 작업 공통 서비스·DB 저장·조회/취소 CLI | [process-job.ts](packages/knowledge/src/process-job.ts), [processing-jobs.ts](packages/database/src/processing-jobs.ts), [processing-job.ts](scripts/processing-job.ts) |
+| 중단 재개·구간 checkpoint·파일 intent·부분 로그 복구 | [recovery-types.ts](packages/knowledge/src/recovery-types.ts), [005 migration](packages/database/sql/005_processing_recovery.sql), [SIGKILL 자식 프로세스](packages/database/test/recovery-child.ts) |
 | 실제 DB 설치·rollback·workspace·승인·웹 서버 연결 | [integration.test.ts](packages/database/test/integration.test.ts), [재현 절차](CONTRIBUTING.md#live-database-verification) |
 
 완성 결과의 같은 요청은 생성기를 재호출하지 않습니다. Raw만 남은 실패는 재시도할 수 있고 Article 생성 후 로그 추가 실패는 기존 글을 재사용합니다. Inbox 삭제·Wiki 생성·기존 글 덮어쓰기는 이 서비스에 없습니다. 루트 typecheck에 새 서비스/CLI 검사를 연결했고 Mac의 중첩 pnpm 버전 충돌도 실행 래퍼로 처리했습니다.
@@ -67,11 +68,19 @@ status: in-progress
 
 - **원격 검증:** 기능 커밋 `b90c157`의 [GitHub CI](https://github.com/zmakerz/obsidianOs/actions/runs/35237193982)가 성공했습니다. Ubuntu + Node 24 + PostgreSQL 18에서 frozen install·기본/DB 통합 테스트·demo·typecheck·build가 통과했습니다. 검증용 로컬 PostgreSQL은 종료했고 자동 서비스로 등록하지 않았습니다.
 
+## 이번 중단 복구 구현 검증 — 2026-09-22 맥북
+
+- `005_processing_recovery.sql`과 CLI `--track-job --resume`을 연결했습니다. 30초 lease와 heartbeat, 같은 실행의 DB 쓰기 검사, Vault별 DB 세션 잠금으로 재개를 제어합니다. 파일 잠금은 같은 job의 이전 attempt·같은 hostname·종료된 PID를 확인한 경우만 회수합니다. 살아 있는 프로세스나 출처 불명 잠금은 보존합니다.
+- 검증된 생성 구간과 완성 초안은 재사용하고, Raw/Article 게시 전 hash intent와 일일 로그의 이전/추가 바이트로 중단 지점을 대조합니다. 기존 파일 수정은 보존하며 결과나 과금이 불명인 호출은 재호출하지 않고 needs-review로 남깁니다. 성공 시 임시 생성 본문과 로그 before-image는 DB에서 제거하고 문서 hash·사용량·시도 이력을 유지합니다. 재개를 위해 같은 입력/옵션을 다시 제공해야 합니다.
+- 이 기기의 새 격리 PostgreSQL 18.6 cluster에서 **48개 시나리오(Node 부모 테스트 3개 포함 51개) 통과**했습니다. 기존 24개에 복구 시나리오 24개를 추가했습니다. 실제 자식 프로세스를 SIGKILL하고 폐기용 DB에서만 lease 만료를 재현했습니다. 원문/호출/구간/초안/Article/로그/완료 기록 전후, 부분 로그, 중복 재개, 수정본 보존, DB 세션 연결 손실 후 살아 있는 파일 소유자 보호, 이전 시도의 쓰기 거부와 공개 CLI --resume을 검증했습니다. 테스트용 DB 외 backend를 종료하지 않도록 대상 DB 범위를 제한합니다.
+- 기본 테스트 **98개(39+59)**, TypeScript 검사·production build·demo 통과. 모델 응답은 테스트에서 주입했고 **실제 API 호출·추가 비용은 없습니다**. `.env.local`·개인 Vault·기존 운영 DB를 변경하지 않았습니다. 검증 후 이번 임시 PostgreSQL 서버는 종료했습니다. 9월 17일의 실제 API·Obsidian 왕복·DB 서버 재시작 검증은 과거 증거이며 이번에 다시 수행한 것으로 표시하지 않습니다.
+- 영문/한글 README, PRODUCT, ARCHITECTURE, MILESTONES와 CONTRIBUTING에 명시적 재개 사용법·한계·임시 본문 보관을 반영했습니다. M2.1 전체 완료는 아니며 다음은 입력 계약과 자료별 품질 검증입니다. 이번 변경의 원격 공유/CI 결과는 확인 후 기록합니다.
+
 ## 알려진 한계
 
 - DB migration/pool/승인과 선택적 CLI job/attempt/event·사용량 저장은 연결했습니다. 웹 AI·작업 상태 화면·백그라운드 Worker는 아직 없습니다. 이력 없는 기존 DB의 자동 baseline, 수동 DDL drift 검사와 일반 사용자 DB 자동 설치는 미지원입니다. DB 제약 검증을 로그인·다중 회사 권한 격리 완료로 해석하지 않습니다.
-- 파일 잠금은 지속 작업 큐가 아닙니다. 강제 종료 후 잠금은 수동 확인이 필요하며 자동으로 탈취하지 않습니다. lease, write intent, 구간 checkpoint와 부분 로그 복구가 남아 있습니다. 실행 도중 강제 종료된 작업은 running/started로 조회되며 자동 회수하지 않습니다. 완료 중복 조회는 저장된 처리 결과이며 현재 파일 revision 재검증이 아닙니다.
-- 중간 실패한 긴 입력은 모델 재호출이 발생할 수 있습니다. 코드 블록/분할 검사는 의미적 누락·수치 충실성·문체 품질을 보장하지 않습니다.
+- 파일 잠금은 지속 작업 큐가 아닙니다. 중단 후 --resume은 만료된 실행과 같은 기기의 확인된 종료 소유자에 한정됩니다. 구형 lease 없는 running, 다른 기기/불명 잠금, 결과 불명 호출, 취소/시도 상한으로 종료된 작업의 남은 잠금은 별도 검토가 필요하며 강제 초기화 도구는 없습니다. 백그라운드 자동 재개·전원 손실/파일시스템 손상·모든 외부 편집 경쟁은 검증 범위 밖입니다. 완료 중복 조회는 저장된 처리 결과이며 현재 파일 revision 재검증이 아닙니다.
+- 저장된 생성 구간은 재사용하지만, 결과를 확보하지 못한 호출은 안전하게 재호출할 수 있다고 추측하지 않습니다. 복구 레코드는 4.5 MB 입력 상한이 있으며 미완료/검토 자료의 장기 정리 정책은 후속입니다. 코드 블록/분할 검사는 의미적 누락·수치 충실성·문체 품질을 보장하지 않습니다.
 - CLI는 입력 파일 전체를 보존합니다. Capture frontmatter 분리, 웹/YouTube 본문 수집, PDF 등 바이너리 입력은 아직 미지원입니다. URL만 있으면 needs-input입니다.
 - Raw/Article 폴더 내 ID 조회는 되지만, Raw 이동 뒤 자동 링크 복구는 없습니다. 불일치는 검토할 충돌로 반환합니다.
 - 웹은 단일 로컬 연결만 제공합니다. 최대 300문서·3,000항목·깊이12, 파일별 앞 8 KB/본문 1,200자 목록이므로 검색은 미리보기 범위입니다. 변경 감지·전체 검색 인덱스는 없으며 수동 새로고침합니다. 이름 변경은 새 목록 ID입니다. 업로드 파일당 2 MB·배치 20개/10 MB, 전체 읽기는 메타데이터 포함 2.1 MB, 화면 50,000자·다운로드는 frontmatter 제외 전체 본문입니다.
@@ -79,7 +88,7 @@ status: in-progress
 
 ## 바로 다음 행동
 
-[Milestones의 M2.1 남은 실행 순서](docs/MILESTONES.md#m21의-남은-실행-순서) **3번 중단 후 복구부터 진행합니다.** `process-job.ts`, `processing-jobs.ts`, `markdown-vault.ts`, `openai-article.ts`와 ARCHITECTURE의 지속성 절을 읽고 lease/heartbeat·구간 checkpoint·write intent를 연결합니다. 실제 프로세스 종료를 API/파일/일일 로그 전후에 주입하고, 이미 받은 결과 재사용·원본/수정본 보존·과금 불명 상태를 검증합니다. 현재 running을 단순 failed로 바꾸거나 잠금을 삭제해 재실행하지 않습니다. 이후 입력/품질 검증과 사용자 실사용 Article 검토로 이어갑니다. Company Profile 공란은 이를 막지 않습니다.
+[Milestones의 M2.1 남은 실행 순서](docs/MILESTONES.md#m21의-남은-실행-순서) **4번 입력 계약과 품질 검증부터 진행합니다.** Capture frontmatter와 실제 본문을 분리하는 Adapter를 기존 Raw/Article 공통 서비스에 연결합니다. 마케팅·코드·긴 일반 자료에서 앞/중간/끝, 수치·조건·사례·코드 보존과 합본 중복/문체를 평가합니다. 구조 검사만으로 의미적 누락이 없다고 판정하지 않고, 사용자가 선택한 실사용 자료 최소 한 건의 Article 검토까지 이어갑니다. Company Profile 공란은 이를 막지 않습니다. 기존 API 연결 검사를 이유 없이 반복하지 않습니다.
 
 Obsidian 열기/편집 → 웹 새로고침 왕복은 확인했습니다. 다음 구현은 M2.1 지속 작업 기반에 웹 AI 처리·설정·작업 상태를 연결하고 URL 수집·Wiki 검토를 추가합니다. 대규모 Vault에 대해서는 검색 범위/인덱스·변경 감지와 중단 복구를 검증합니다. 탭 메모리 기능을 별도 영구 문서 저장소로 확장하지 않습니다. 로컬 실행기와 DB 준비까지 연결돼야 일반 사용자 설치 완료로 판단합니다.
 

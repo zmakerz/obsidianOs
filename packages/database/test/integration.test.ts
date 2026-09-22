@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { randomUUID, createHash } from "node:crypto";
-import { execFile } from "node:child_process";
+import { execFile, fork } from "node:child_process";
 import { promisify } from "node:util";
 import { test } from "node:test";
 import { loadMigrations, runMigrations, type Migration } from "../src/migrations.ts";
 import { createPostgresDatabase, getSharedPostgresControlTowerRepository, closeSharedPostgresDatabase } from "../src/postgres.ts";
 import { ControlTowerRepository } from "../src/repository.ts";
 import type { TransactionalDatabase } from "../src/types.ts";
-import { mkdtemp, mkdir, writeFile, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, appendFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ProcessingJobRepository } from '../src/processing-jobs.ts';
@@ -115,7 +115,7 @@ test("PostgreSQL migration and repository integration", { timeout: 120_000 }, as
 
   await t.test('job migration upgrades the recorded baseline without changing workspace data', () => fixture(async db => {
     await runMigrations(db, migrations.slice(0, 2)); await populate(db);
-    assert.deepEqual(await runMigrations(db, migrations), ['004_processing_jobs.sql']);
+    assert.deepEqual(await runMigrations(db, migrations), migrations.slice(2).map(m => m.version));
     assert.deepEqual((await db.query('SELECT id FROM workspaces ORDER BY id')).rows, [{ id: 'a' }, { id: 'b' }]);
     assert.equal((await db.query('SELECT id FROM approval_requests')).rows.length, 2);
     assert.deepEqual(await runMigrations(db, migrations), []);
@@ -409,4 +409,169 @@ test('Durable processing jobs', { timeout: 120_000 }, async t => {
     assert.deepEqual(listing.map((j: { id: string }) => j.id), [first.id]);
     await assert.rejects(exec(process.execPath, ['scripts/processing-job.ts', '--workspace', 'b', '--job', first.id], { env }));
   })));
+});
+
+async function startRecoveryChild(url: string, vault: string, fault = '', mode = '') {
+  const child = fork(new URL('./recovery-child.ts', import.meta.url), [vault, fault, mode], {
+    env: { ...process.env, TEST_DATABASE_URL: url }, execArgv: [], silent: true,
+  });
+  let stdout = '', stderr = '';
+  child.stdout!.on('data', data => { stdout += data; });
+  child.stderr!.on('data', data => { stderr += data; });
+  const exited = new Promise<{ code: number | null; signal: string | null }>((resolve, reject) => {
+    child.once('error', reject); child.once('exit', (code, signal) => resolve({ code, signal }));
+  });
+  const timer = setTimeout(() => child.kill('SIGKILL'), 20_000);
+  if (fault) {
+    await Promise.race([
+      new Promise<void>(resolve => child.once('message', () => resolve())),
+      exited.then(() => { throw new Error('Child exited before fault boundary: ' + stderr); }),
+    ]);
+  }
+  return { child, exited, async kill() { child.kill('SIGKILL'); await exited; clearTimeout(timer); }, async result() {
+    const exit = await exited; clearTimeout(timer);
+    assert.equal(exit.code, 0, stderr);
+    return JSON.parse(stdout);
+  } };
+}
+
+async function recoveryFixture(work: (db: TransactionalDatabase, url: string, vault: MarkdownVault) => Promise<void>) {
+  await fixture((db, url) => vaultFixture(async vault => {
+    await runMigrations(db, migrations); await populate(db);
+    await db.query('CREATE TABLE recovery_probe (id bigint GENERATED ALWAYS AS IDENTITY)');
+    await mkdir(join(vault.root, '90_logs'));
+    const day = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
+    await writeFile(join(vault.root, '90_logs', day + '.md'), 'Existing operator log.\n');
+    await work(db, url, vault);
+  }));
+}
+const expire = (db: TransactionalDatabase) => db.query("UPDATE processing_jobs SET lease_until=clock_timestamp()-interval '1 second' WHERE status='running'");
+
+test('Crash recovery with real SIGKILL subprocesses', { timeout: 180_000 }, async t => {
+  await t.test('the public CLI resumes a supplied-draft job without an API key', () => recoveryFixture(async (db, url, vault) => {
+    const interrupted = await startRecoveryChild(url, vault.root, 'file:after:20_raw', 'draft'); await interrupted.kill();
+    await expire(db);
+    const input = join(vault.root, '..', 'source.md'), draft = join(vault.root, '..', 'draft.md');
+    await writeFile(input, 'a'.repeat(80) + '\n\n' + 'b'.repeat(80)); await writeFile(draft, 'Synthetic supplied result.');
+    const env = { ...process.env, DATABASE_URL: url, OPENAI_API_KEY: '' };
+    const result = JSON.parse((await exec(process.execPath, ['scripts/process-source.ts', '--track-job', '--workspace', 'a', '--resume',
+      '--vault', vault.root, '--source-root', join(vault.root, '..'), '--source', input, '--draft', draft, '--title', 'Recovery fixture'], { env })).stdout);
+    assert.equal(result.status, 'succeeded'); assert.equal(result.attemptCount, 2);
+    assert.equal((await db.query('SELECT * FROM recovery_probe')).rows.length, 0);
+  }));
+  for (const boundary of ['file:before:20_raw', 'file:after:20_raw', 'model:before-call', 'model:checkpoint', 'draft:saved',
+    'file:before:80_outputs', 'file:after:80_outputs', 'log:before', 'log:chunk', 'log:after', 'job:before-finish']) {
+    await t.test(boundary + ' resumes without duplicate calls or files', () => recoveryFixture(async (db, url, vault) => {
+      const interrupted = await startRecoveryChild(url, vault.root, boundary);
+      await interrupted.kill();
+      const jobs = new ProcessingJobRepository(db);
+      const original = (await jobs.list('a'))[0];
+      assert.equal(original.status, 'running');
+      // A restart cannot take an unexpired lease.
+      assert.equal((await (await startRecoveryChild(url, vault.root)).result()).status, 'running');
+      await expire(db);
+      const result = await (await startRecoveryChild(url, vault.root)).result();
+      assert.equal(result.status, 'succeeded', JSON.stringify(result));
+      assert.equal(result.id, original.id); assert.equal(result.attemptCount, 2);
+      assert.equal((await db.query('SELECT * FROM recovery_probe')).rows.length, 2);
+      assert.equal((await readdir(join(vault.root, '20_raw/document'))).filter(p => p.endsWith('.md')).length, 1);
+      assert.equal((await readdir(join(vault.root, '80_outputs/articles'))).filter(p => p.endsWith('.md')).length, 1);
+      const logFile = (await readdir(join(vault.root, '90_logs')))[0];
+      const log = await readFile(join(vault.root, '90_logs', logFile), 'utf8');
+      assert.equal(log.startsWith('Existing operator log.\n'), true);
+      assert.equal((log.match(/<!-- event:/g) ?? []).length, 1);
+      assert.equal(log.endsWith('`\n'), true);
+      assert.deepEqual((await jobs.inspect('a', result.id))!.attempts.map(a => a.status), ['failed', 'succeeded']);
+      assert.deepEqual(await jobs.recoveryKeys('a', result.id, 'segment:'), []);
+      assert.equal(await jobs.loadRecovery('a', result.id, 'draft'), null);
+      assert.equal((await jobs.inspect('a', result.id))!.calls.length, 2);
+    }));
+  }
+  for (const boundary of ['model:started', 'http:effect', 'model:reported']) {
+    await t.test(boundary + ' remains review-only when no durable result exists', () => recoveryFixture(async (db, url, vault) => {
+      const interrupted = await startRecoveryChild(url, vault.root, boundary); await interrupted.kill();
+      const count = (await db.query('SELECT * FROM recovery_probe')).rows.length;
+      await expire(db);
+      const result = await (await startRecoveryChild(url, vault.root)).result();
+      assert.equal(result.status, 'needs-review');
+      assert.equal(result.reason, 'interrupted-call-needs-review');
+      assert.equal((await db.query('SELECT * FROM recovery_probe')).rows.length, count);
+    }));
+  }
+  for (const boundary of ['file:after:20_raw', 'file:after:80_outputs', 'log:chunk']) {
+    await t.test(boundary + ' preserves user edits and refuses conflicting recovery', () => recoveryFixture(async (db, url, vault) => {
+      const interrupted = await startRecoveryChild(url, vault.root, boundary); await interrupted.kill();
+      const folder = boundary.includes('20_raw') ? '20_raw/document' : boundary.includes('80_outputs') ? '80_outputs/articles' : '90_logs';
+      const file = (await readdir(join(vault.root, folder))).find(p => p.endsWith('.md'))!;
+      const target = join(vault.root, folder, file);
+      await appendFile(target, '\nUSER EDIT MUST SURVIVE\n');
+      const before = await readFile(target);
+      await expire(db);
+      const result = await (await startRecoveryChild(url, vault.root)).result();
+      assert.equal(result.status, 'needs-review', JSON.stringify(result));
+      assert.deepEqual(await readFile(target), before);
+    }));
+  }
+  await t.test('a live owner cannot be stolen even if its lease expires', () => recoveryFixture(async (db, url, vault) => {
+    const live = await startRecoveryChild(url, vault.root, 'model:before-call');
+    try {
+      await expire(db);
+      const second = await (await startRecoveryChild(url, vault.root)).result();
+      assert.equal(second.status, 'running'); assert.equal(second.attemptCount, 1);
+      assert.equal((await db.query('SELECT * FROM recovery_probe')).rows.length, 0);
+    } finally { await live.kill(); }
+  }));
+  await t.test('a lost DB session does not authorize stealing a live process file lock', () => recoveryFixture(async (db, url, vault) => {
+    const live = await startRecoveryChild(url, vault.root, 'model:before-call');
+    try {
+      const lock = await readFile(join(vault.root, '.business-os-write.lock'));
+      await db.query("SELECT pg_terminate_backend(pid) FROM pg_locks WHERE locktype='advisory' AND pid<>pg_backend_pid() AND database=(SELECT oid FROM pg_database WHERE datname=current_database())");
+      await expire(db);
+      const result = await (await startRecoveryChild(url, vault.root)).result();
+      assert.equal(result.status, 'needs-review'); assert.equal(result.reason, 'recovery-owner-still-alive');
+      assert.deepEqual(await readFile(join(vault.root, '.business-os-write.lock')), lock);
+    } finally { await live.kill(); }
+  }));
+  await t.test('unknown lock owner is preserved for review', () => recoveryFixture(async (db, url, vault) => {
+    const stopped = await startRecoveryChild(url, vault.root, 'model:before-call'); await stopped.kill();
+    const path = join(vault.root, '.business-os-write.lock');
+    const lock = JSON.parse(await readFile(path, 'utf8')); lock.host = 'another-machine';
+    const original = JSON.stringify(lock); await writeFile(path, original);
+    await expire(db);
+    const result = await (await startRecoveryChild(url, vault.root)).result();
+    assert.equal(result.status, 'needs-review'); assert.equal(result.reason, 'recovery-lock-needs-review');
+    assert.equal(await readFile(path, 'utf8'), original);
+  }));
+  await t.test('competing resumes execute one replacement attempt', () => recoveryFixture(async (db, url, vault) => {
+    const stopped = await startRecoveryChild(url, vault.root, 'model:checkpoint'); await stopped.kill(); await expire(db);
+    const processes = await Promise.all([startRecoveryChild(url, vault.root), startRecoveryChild(url, vault.root)]);
+    const results = await Promise.all(processes.map(p => p.result()));
+    assert.equal(results.some(r => r.status === 'succeeded'), true);
+    assert.equal((await new ProcessingJobRepository(db).list('a'))[0].attemptCount, 2);
+    assert.equal((await db.query('SELECT * FROM recovery_probe')).rows.length, 2);
+  }));
+  await t.test('late cancellation completes the already published Article log', () => recoveryFixture(async (db, _url, vault) => {
+    const jobs = new ProcessingJobRepository(db);
+    const result = await processSourceJob(source, { jobs, workspaceId: 'a', vault, generator: providedDraft('Completed article'),
+      async boundary(name) {
+        if (name === 'file:after:80_outputs') { const current = (await jobs.list('a'))[0]; await jobs.cancel('a', current.id); }
+      },
+    });
+    assert.equal(result.status, 'succeeded'); assert.equal(result.cancelRequested, true);
+    const log = await readFile(join(vault.root, '90_logs', (await readdir(join(vault.root, '90_logs')))[0]), 'utf8');
+    assert.equal((log.match(/<!-- event:/g) ?? []).length, 1); assert.equal(log.endsWith('`\n'), true);
+  }));
+  await t.test('expired and replaced attempts cannot heartbeat or persist artifacts', () => recoveryFixture(async (db, _url, vault) => {
+    const jobs = new ProcessingJobRepository(db);
+    const requested = await jobs.request({ workspaceId: 'a', vaultId: digest(vault.root), requestHash: digest('fence-test'), maxAttempts: 3 });
+    const first = (await jobs.claim('a', requested.id, false))!;
+    await expire(db);
+    assert.equal(await jobs.heartbeat('a', requested.id, first.attemptId), false);
+    await assert.rejects(jobs.saveRecovery('a', requested.id, first.attemptId, 'test', {}), /lease-expired/);
+    const next = (await jobs.claim('a', requested.id, false, true))!;
+    await assert.rejects(jobs.finish('a', requested.id, first.attemptId, { status: 'succeeded' }), /attempt-not-running/);
+    await jobs.saveRecovery('a', requested.id, next.attemptId, 'test', { value: 1 });
+    await assert.rejects(jobs.saveRecovery('a', requested.id, next.attemptId, 'test', { value: 2 }), /recovery-conflict/);
+    assert.equal(await jobs.loadRecovery('b', requested.id, 'test'), null);
+  }));
 });

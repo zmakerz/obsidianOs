@@ -15,7 +15,14 @@ export interface ModelCall {
   sequence: number; model: string; status: 'started' | 'reported' | 'unknown';
   inputTokens: number | null; outputTokens: number | null;
 }
-export interface GenerationObserver { onCall(call: ModelCall): Promise<void> }
+export interface GenerationObserver {
+  onCall(call: ModelCall): Promise<void>;
+  boundary?: (name: string) => Promise<void>;
+  checkpoint?: {
+    load(sequence: number): Promise<import('./recovery-types.ts').SegmentCheckpoint | null>;
+    save(sequence: number, value: import('./recovery-types.ts').SegmentCheckpoint): Promise<void>;
+  };
+}
 export interface ArticleDraft {
   body: string;
   mode: 'provided-draft' | 'ai';

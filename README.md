@@ -6,7 +6,7 @@ A local-first knowledge and operations foundation for Obsidian, Markdown, and AI
 
 Turn source material into readable articles and reusable knowledge, then bring that knowledge into company workflows. Personal knowledge and company data remain separate.
 
-**Early development / local demo.** The web library now connects to a local Markdown Vault, reads existing notes, and saves imported files or pasted text as Raw originals. Connection settings and saved documents survive refreshes and service restarts. The first M2.1 slice supports persistent local Raw preservation and AI Article generation through a separate CLI. An optional CLI mode now records processing jobs, attempts, events and per-call usage in PostgreSQL. Automatic crash recovery, Obsidian processing commands, and the full approval/execution flow are still in development. This is not yet a production or public-server release.
+**Early development / local demo.** The web library now connects to a local Markdown Vault, reads existing notes, and saves imported files or pasted text as Raw originals. Connection settings and saved documents survive refreshes and service restarts. The first M2.1 slice supports persistent local Raw preservation and AI Article generation through a separate CLI. An optional CLI mode now records processing jobs, attempts, events and per-call usage in PostgreSQL. Explicit local crash resume now reuses saved segments and repairs attributable partial log writes. Background recovery, Obsidian processing commands, and the full approval/execution flow are still in development. This is not yet a production or public-server release.
 
 ![Connected web library with synthetic demo documents](docs/images/web-library.jpg)
 
@@ -22,8 +22,8 @@ Preserve the original and produce an article that retains its examples, numbers,
 
 | Available now | Next to implement |
 |---|---|
-| Local CLI for Raw preservation, supplied drafts, and AI Articles | Automatic crash recovery and checkpoints |
-| Reuse of completed requests and manual-edit conflict detection | Per-segment checkpoints and real-source quality evaluation |
+| Local CLI for Raw preservation, supplied drafts, and AI Articles | Background Worker and web processing |
+| Reuse of completed requests and manual-edit conflict detection | Real-source content and writing quality evaluation |
 | Public Obsidian sample Vault and structure/link checks | Obsidian processing commands and shared web task views |
 | Local Vault connection, persistent file/text imports, search, reading, and Obsidian links | Web AI processing, URL capture, and live file-change detection |
 | Operations Demo and initial DB views at `/operations` | Reviewed, approved Wiki changes and section-level retrieval |
@@ -127,7 +127,7 @@ corepack pnpm check:openai
 - Empty or URL-only input returns `needs-input`. Model errors, truncated responses, or missing code blocks fail the request and preserve Raw. These checks do not guarantee factual or writing quality.
 - AI input is split without breaking paragraphs or fenced code blocks: up to 12,000 characters per segment, 8 calls, and 8,192 output tokens per response. There are no automatic retries. Oversized indivisible blocks or inputs exceeding the call budget fail explicitly rather than being silently truncated.
 
-The service currently supports one local writer. Concurrent writes are rejected through `.business-os-write.lock`. Normal errors/cancellation release the lock; forced termination can leave it behind for manual inspection and recovery. Partial generation checkpoints and automatic crash recovery are still pending; durable records are available through the optional mode below. This is not a completed M2.1 pipeline or operational Worker.
+The service currently supports one local writer. Concurrent writes are rejected through `.business-os-write.lock`. Normal errors/cancellation release the lock; forced termination can leave it behind for manual inspection and recovery. The optional tracked mode below supports saved segments and explicit local recovery; file-only mode does not reclaim abandoned locks. This is not a completed M2.1 pipeline or operational Worker.
 
 API references: [OpenAI Responses](https://developers.openai.com/api/reference/responses/create) and [GPT-5.6 Terra](https://developers.openai.com/api/docs/models/gpt-5.6-terra). Tests use synthetic fixtures and mocked API responses, without user documents or credentials.
 
@@ -148,7 +148,10 @@ corepack pnpm knowledge:job --workspace workspace-demo --job JOB_ID --cancel
 - To retry an eligible failed job, repeat the same processing command with `--retry`. The first request fixes `--max-attempts` (default 3, allowed 1–5); later requests cannot raise it. Nothing retries automatically. Changed input/policy or a moved Vault creates a new request.
 - Lookup works after restarting the CLI. The list shows the latest 50 jobs; a job lookup includes attempts, events and each model call. Known usage from an earlier segment survives a later failure. Unknown tokens remain `null`, never an invented zero; these are tokens, not a currency cost calculation.
 - Cancellation is cooperative: queued jobs stop immediately; a live process checks running cancellation during generation and before publication. Already published files are retained. A cancellation arriving after publication may leave the job successful.
-- Lost responses/unknown usage require review and cannot be retried with `--retry`. Crashed processes or uncertain DB writes remain visible as running; lease recovery and an explicit review/resume command are not implemented yet. Do not manually reset their status or remove a lock without investigating.
+- To resume a crashed tracked job, repeat its original processing command with `--resume`. Run `db:migrate` first, with old CLI processes stopped. A 30-second lease must expire; a per-Vault DB session lock and the recorded dead process/attempt protect file-lock reclamation. Same-machine, known dead owners only: live, unknown, pre-recovery-version or foreign-machine locks require review.
+- Valid saved segments and a saved final draft are reused. Raw/Article write hashes are compared before continuing. A partially appended log is completed only when its bytes match the recorded original and append prefix; conflicting user edits are preserved. Recovery uses the original date and the same input/policy/Vault path, and consumes one of the original attempt slots.
+- Lost responses, or received usage without a durable generated result, require review and cannot be retried with `--retry` or `--resume`. Unknown tokens remain unknown. Published-file loss, conflicting edits and unprovable locks are not repaired by force. Review/override tooling and background recovery are not implemented.
+- Draft/segment bodies and log before-images are temporary DB recovery artifacts, not editable document copies. Successful completion removes these bodies in the same transaction as the result; hashes, events and token records remain. Unfinished/review artifacts are retained. Each recovery record is limited to 4.5 MB of serialized JSON; large daily-log snapshots can require review.
 
 This mode runs one attempt in the foreground. It does not start a background Worker or enable web AI processing. Without `--track-job`, the existing file-only CLI works as before.
 

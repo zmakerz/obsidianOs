@@ -86,8 +86,16 @@ export class OpenAIArticleGenerator implements ArticleGenerator {
     const usage: ArticleUsage = { inputTokens: 0, outputTokens: 0, calls: 0 };
     for (let index = 0; index < chunks.length; index++) {
       signal?.throwIfAborted();
+      const saved = await observer?.checkpoint?.load(index + 1);
+      if (saved) {
+        if (typeof saved.body !== 'string' || !saved.body.trim() || !Number.isSafeInteger(saved.inputTokens) || saved.inputTokens < 0 || !Number.isSafeInteger(saved.outputTokens) || saved.outputTokens < 0 || codeBlocks(chunks[index]).some(block => !saved.body.replaceAll('\r\n', '\n').includes(block))) throw new KnowledgeError('recovery-checkpoint-conflict');
+        output.push(saved.body); usage.inputTokens += saved.inputTokens; usage.outputTokens += saved.outputTokens; usage.calls++;
+        continue;
+      }
+      await observer?.boundary?.('model:before-call');
       const call = { sequence: index + 1, model: this.model };
       await observer?.onCall({ ...call, status: 'started', inputTokens: null, outputTokens: null });
+      await observer?.boundary?.('model:started');
       let response: Response;
       let payload: ResponseBody;
       try {
@@ -113,6 +121,7 @@ export class OpenAIArticleGenerator implements ArticleGenerator {
       // Record each received usage before validating output; rejected/partial output still consumed tokens.
       await observer?.onCall({ ...call, status: measured ? 'reported' : 'unknown',
         inputTokens: measured ? inputTokens! : null, outputTokens: measured ? outputTokens! : null });
+      await observer?.boundary?.('model:reported');
       if (payload?.status !== 'completed') throw new KnowledgeError('openai-incomplete-response');
       if (!Array.isArray(payload.output)) throw new KnowledgeError('openai-invalid-article');
       const parts = payload.output.filter(item => item?.type === 'message').flatMap(item => Array.isArray(item.content) ? item.content : []);
@@ -123,6 +132,8 @@ export class OpenAIArticleGenerator implements ArticleGenerator {
       if (codeBlocks(chunks[index]).some(block => !normalized.includes(block))) throw new KnowledgeError('source-code-not-preserved');
       if (!measured) throw new KnowledgeError('openai-usage-missing');
       usage.inputTokens += inputTokens!; usage.outputTokens += outputTokens!; usage.calls++;
+      await observer?.checkpoint?.save(index + 1, { body: text, inputTokens: inputTokens!, outputTokens: outputTokens! });
+      await observer?.boundary?.('model:checkpoint');
       output.push(text);
     }
     return { body: '# ' + source.title + '\n\n' + output.join('\n\n') + '\n', mode: 'ai', model: this.model, usage };
